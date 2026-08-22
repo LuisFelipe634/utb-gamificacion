@@ -1,5 +1,6 @@
 "use client"
 
+import { useState, useEffect } from "react"
 import {
   BookOpen,
   Trophy,
@@ -8,49 +9,137 @@ import {
   Award,
   Clock,
   AlertTriangle,
-  ChevronRight
+  Bell,
+  ChevronRight,
+  Loader2
 } from "lucide-react"
 import Link from "next/link"
 
-// Datos de ejemplo (luego se obtendrán de la API)
-const mockData = {
-  student: {
-    name: "Juan Pérez",
-    program: "Ingeniería de Sistemas",
-    semester: 6,
-    level: 3,
-    points: 2450,
-    average: 4.2,
-    creditsApproved: 95,
-    totalCredits: 160
-  },
-  recentBadges: [
-    { id: 1, name: "Explorador", icon: "🎯", earned: "Hace 2 días" },
-    { id: 2, name: "Constante", icon: "📅", earned: "Hace 1 semana" },
-    { id: 3, name: "Mentor", icon: "👨‍🏫", earned: "Hace 2 semanas" }
-  ],
-  activeMissions: [
-    { id: 1, title: "Planificar próximo semestre", progress: 60, points: 150 },
-    { id: 2, title: "Completar taller de bases de datos", progress: 30, points: 200 },
-    { id: 3, title: "Mejorar nota en Cálculo III", progress: 45, points: 250 }
-  ],
-  alerts: [
-    { id: 1, type: "warning", message: "Faltan 2 créditos para desbloquear Redes" },
-    { id: 2, type: "info", message: "Nuevo semestre disponible para planificación" }
-  ]
+interface StudentData {
+  user: {
+    id: string
+    email: string
+    name: string
+    role: string
+  }
+  profile: {
+    studentCode: string
+    currentSemester: number
+    totalCredits: number
+    averageGrade: number
+    level: number
+    program: {
+      name: string
+      totalCredits: number
+    }
+  }
+  stats: {
+    totalPoints: number
+    currentLevel: string
+    currentLevelNumber: number
+    nextLevel: string | null
+    nextLevelPoints: number
+    pointsToNextLevel: number
+    activeMissionsCount: number
+    completedMissionsCount: number
+    badgesCount: number
+  }
+  missions: Array<{
+    id: string
+    title: string
+    description: string
+    type: string
+    points: number
+    progress: number
+    status: string
+    completedAt: string | null
+  }>
+  recentBadges: Array<{
+    id: string
+    name: string
+    icon: string
+    earned: string
+  }>
+  notifications: Array<{
+    id: string
+    title: string
+    message: string
+    type: string
+    isRead: boolean
+    createdAt: string
+  }>
+  unreadCount: number
 }
 
 export default function Dashboard() {
+  const [data, setData] = useState<StudentData | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState("")
+
+  useEffect(() => {
+    fetchStudentData()
+  }, [])
+
+  const fetchStudentData = async () => {
+    try {
+      const response = await fetch("/api/student")
+      if (!response.ok) {
+        throw new Error("Error al cargar datos")
+      }
+      const result = await response.json()
+      setData(result)
+    } catch (err) {
+      setError("Error al cargar los datos del estudiante")
+      console.error(err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="w-8 h-8 text-blue-500 animate-spin" />
+        <span className="ml-2 text-gray-600 dark:text-gray-400">Cargando...</span>
+      </div>
+    )
+  }
+
+  if (error || !data) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <AlertTriangle className="w-12 h-12 text-yellow-500 mx-auto mb-4" />
+          <p className="text-gray-600 dark:text-gray-400">{error || "No se pudieron cargar los datos"}</p>
+          <button
+            onClick={fetchStudentData}
+            className="mt-4 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+          >
+            Reintentar
+          </button>
+        </div>
+      </div>
+    )
+  }
+
   const progressPercentage = Math.round(
-    (mockData.student.creditsApproved / mockData.student.totalCredits) * 100
+    (data.profile.totalCredits / data.profile.program.totalCredits) * 100
   )
+
+  // Filtrar misiones activas
+  const activeMissions = data.missions
+    .filter((m) => m.status === "EN_PROGRESO" || m.status === "PENDIENTE")
+    .slice(0, 3)
+
+  // Obtener no leídas para alertas
+  const alerts = data.notifications.slice(0, 3)
 
   return (
     <div className="space-y-6">
       {/* Welcome */}
       <div>
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-          ¡Hola, {mockData.student.name}! 👋
+          ¡Hola, {data.user.name}! 👋
         </h1>
         <p className="text-gray-600 dark:text-gray-400">
           Aquí tienes tu resumen de progreso académico
@@ -65,7 +154,10 @@ export default function Dashboard() {
             <div>
               <p className="text-sm text-gray-500 dark:text-gray-400">Nivel</p>
               <p className="text-3xl font-bold text-gray-900 dark:text-white">
-                {mockData.student.level}
+                {data.stats.currentLevelNumber}
+              </p>
+              <p className="text-xs text-purple-600 dark:text-purple-400">
+                {data.stats.currentLevel}
               </p>
             </div>
             <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900/30 rounded-xl flex items-center justify-center">
@@ -80,8 +172,13 @@ export default function Dashboard() {
             <div>
               <p className="text-sm text-gray-500 dark:text-gray-400">Puntos</p>
               <p className="text-3xl font-bold text-gray-900 dark:text-white">
-                {mockData.student.points.toLocaleString()}
+                {data.stats.totalPoints.toLocaleString()}
               </p>
+              {data.stats.nextLevel && (
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  {data.stats.pointsToNextLevel} pts para {data.stats.nextLevel}
+                </p>
+              )}
             </div>
             <div className="w-12 h-12 bg-yellow-100 dark:bg-yellow-900/30 rounded-xl flex items-center justify-center">
               <TrendingUp className="w-6 h-6 text-yellow-600 dark:text-yellow-400" />
@@ -95,7 +192,7 @@ export default function Dashboard() {
             <div>
               <p className="text-sm text-gray-500 dark:text-gray-400">Promedio</p>
               <p className="text-3xl font-bold text-gray-900 dark:text-white">
-                {mockData.student.average}
+                {data.profile.averageGrade.toFixed(1)}
               </p>
             </div>
             <div className="w-12 h-12 bg-green-100 dark:bg-green-900/30 rounded-xl flex items-center justify-center">
@@ -110,7 +207,7 @@ export default function Dashboard() {
             <div>
               <p className="text-sm text-gray-500 dark:text-gray-400">Semestre</p>
               <p className="text-3xl font-bold text-gray-900 dark:text-white">
-                {mockData.student.semester}
+                {data.profile.currentSemester}
               </p>
             </div>
             <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-xl flex items-center justify-center">
@@ -125,7 +222,7 @@ export default function Dashboard() {
         <div className="flex items-center justify-between mb-4">
           <h2 className="font-semibold text-gray-900 dark:text-white">Progreso de la Carrera</h2>
           <span className="text-sm text-gray-500 dark:text-gray-400">
-            {mockData.student.creditsApproved} / {mockData.student.totalCredits} créditos
+            {data.profile.totalCredits} / {data.profile.program.totalCredits} créditos
           </span>
         </div>
         <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
@@ -152,30 +249,43 @@ export default function Dashboard() {
             </Link>
           </div>
           <div className="space-y-4">
-            {mockData.activeMissions.map((mission) => (
-              <div
-                key={mission.id}
-                className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg"
-              >
-                <div className="flex items-center justify-between mb-2">
-                  <span className="font-medium text-gray-900 dark:text-white">
-                    {mission.title}
-                  </span>
-                  <span className="text-sm text-yellow-600 dark:text-yellow-400">
-                    +{mission.points} pts
-                  </span>
+            {activeMissions.length > 0 ? (
+              activeMissions.map((mission) => (
+                <div
+                  key={mission.id}
+                  className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg"
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="font-medium text-gray-900 dark:text-white">
+                      {mission.title}
+                    </span>
+                    <span className="text-sm text-yellow-600 dark:text-yellow-400">
+                      +{mission.points} pts
+                    </span>
+                  </div>
+                  <div className="h-2 bg-gray-200 dark:bg-gray-600 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-green-500 rounded-full"
+                      style={{ width: `${mission.progress}%` }}
+                    />
+                  </div>
+                  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                    {mission.progress}% completado
+                  </p>
                 </div>
-                <div className="h-2 bg-gray-200 dark:bg-gray-600 rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-green-500 rounded-full"
-                    style={{ width: `${mission.progress}%` }}
-                  />
-                </div>
-                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                  {mission.progress}% completado
-                </p>
+              ))
+            ) : (
+              <div className="text-center py-8">
+                <Target className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-2" />
+                <p className="text-gray-500 dark:text-gray-400">No tienes misiones activas</p>
+                <Link
+                  href="/misiones"
+                  className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
+                >
+                  Explorar misiones disponibles
+                </Link>
               </div>
-            ))}
+            )}
           </div>
         </div>
 
@@ -193,46 +303,88 @@ export default function Dashboard() {
               </Link>
             </div>
             <div className="space-y-3">
-              {mockData.recentBadges.map((badge) => (
-                <div
-                  key={badge.id}
-                  className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg"
-                >
-                  <span className="text-2xl">{badge.icon}</span>
-                  <div>
-                    <p className="font-medium text-gray-900 dark:text-white text-sm">
-                      {badge.name}
-                    </p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">{badge.earned}</p>
+              {data.recentBadges.length > 0 ? (
+                data.recentBadges.map((badge) => (
+                  <div
+                    key={badge.id}
+                    className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg"
+                  >
+                    <span className="text-2xl">{badge.icon}</span>
+                    <div>
+                      <p className="font-medium text-gray-900 dark:text-white text-sm">
+                        {badge.name}
+                      </p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        {new Date(badge.earned).toLocaleDateString("es-ES")}
+                      </p>
+                    </div>
                   </div>
+                ))
+              ) : (
+                <div className="text-center py-4">
+                  <Trophy className="w-8 h-8 text-gray-300 dark:text-gray-600 mx-auto mb-2" />
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    Aún no tienes insignias
+                  </p>
                 </div>
-              ))}
+              )}
             </div>
           </div>
 
           {/* Alerts */}
           <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
-            <h2 className="font-semibold text-gray-900 dark:text-white mb-4">Alertas</h2>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="font-semibold text-gray-900 dark:text-white">Notificaciones</h2>
+              <Link
+                href="/notificaciones"
+                className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
+              >
+                Ver todas
+              </Link>
+            </div>
             <div className="space-y-3">
-              {mockData.alerts.map((alert) => (
-                <div
-                  key={alert.id}
-                  className={`flex items-start gap-3 p-3 rounded-lg ${
-                    alert.type === "warning"
-                      ? "bg-yellow-50 dark:bg-yellow-900/20"
-                      : "bg-blue-50 dark:bg-blue-900/20"
-                  }`}
-                >
-                  <AlertTriangle
-                    className={`w-5 h-5 mt-0.5 ${
-                      alert.type === "warning"
-                        ? "text-yellow-600 dark:text-yellow-400"
-                        : "text-blue-600 dark:text-blue-400"
+              {alerts.length > 0 ? (
+                alerts.map((alert) => (
+                  <div
+                    key={alert.id}
+                    className={`flex items-start gap-3 p-3 rounded-lg ${
+                      alert.type === "ALERTA_RIESGO"
+                        ? "bg-yellow-50 dark:bg-yellow-900/20"
+                        : alert.type === "WARNING"
+                        ? "bg-orange-50 dark:bg-orange-900/20"
+                        : "bg-blue-50 dark:bg-blue-900/20"
                     }`}
-                  />
-                  <p className="text-sm text-gray-700 dark:text-gray-300">{alert.message}</p>
+                  >
+                    <AlertTriangle
+                      className={`w-5 h-5 mt-0.5 ${
+                        alert.type === "ALERTA_RIESGO"
+                          ? "text-yellow-600 dark:text-yellow-400"
+                          : alert.type === "WARNING"
+                          ? "text-orange-600 dark:text-orange-400"
+                          : "text-blue-600 dark:text-blue-400"
+                      }`}
+                    />
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-gray-900 dark:text-white">
+                        {alert.title}
+                      </p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                        {alert.message}
+                      </p>
+                    </div>
+                    {!alert.isRead && (
+                      <span className="w-2 h-2 bg-blue-500 rounded-full mt-2" />
+                    )}
+                  </div>
+                ))
+              ) : (
+                <div className="text-center py-4">
+                  <Bell className="w-8 h-8 text-gray-300 dark:text-gray-600 mx-auto mb-2" />
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    No hay notificaciones nuevas
+                  </p>
                 </div>
-              ))}
+              )}
             </div>
           </div>
         </div>

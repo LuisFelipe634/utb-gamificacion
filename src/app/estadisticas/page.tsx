@@ -1,5 +1,6 @@
 "use client"
 
+import { useState, useEffect } from "react"
 import {
   TrendingUp,
   BookOpen,
@@ -8,55 +9,102 @@ import {
   Clock,
   Award,
   BarChart3,
-  PieChart
+  Loader2
 } from "lucide-react"
 
-// Datos de ejemplo
-const mockStats = {
+interface StatsData {
   overall: {
-    creditsApproved: 95,
-    totalCredits: 160,
-    averageGrade: 4.2,
-    coursesCompleted: 18,
-    totalCourses: 30,
-    currentSemester: 6,
-    totalSemesters: 10
-  },
-  byCategory: [
-    { category: "Básicas", approved: 28, total: 32, percentage: 87.5 },
-    { category: "Disciplinar", approved: 45, total: 72, percentage: 62.5 },
-    { category: "Electivas", approved: 12, total: 24, percentage: 50 },
-    { category: "Libre Elección", approved: 10, total: 16, percentage: 62.5 },
-    { category: "General", approved: 8, total: 16, percentage: 50 }
-  ],
-  monthlyProgress: [
-    { month: "Ene", credits: 12, grade: 4.0 },
-    { month: "Feb", credits: 15, grade: 4.1 },
-    { month: "Mar", credits: 18, grade: 4.0 },
-    { month: "Abr", credits: 22, grade: 4.2 },
-    { month: "May", credits: 25, grade: 4.1 },
-    { month: "Jun", credits: 28, grade: 4.3 },
-    { month: "Jul", credits: 30, grade: 4.2 },
-    { month: "Ago", credits: 32, grade: 4.2 }
-  ],
-  achievements: {
-    totalBadges: 8,
-    earnedBadges: 3,
-    totalMissions: 15,
-    completedMissions: 7,
-    totalPoints: 2450,
-    level: 3,
-    nextLevelPoints: 3000
+    creditsApproved: number
+    totalCredits: number
+    averageGrade: number
+    coursesCompleted: number
+    totalCourses: number
+    currentSemester: number
+    totalSemesters: number
+    gradeTrend: number
   }
+  byCategory: Array<{
+    category: string
+    approved: number
+    total: number
+    credits: number
+    totalCredits: number
+    percentage: number
+  }>
+  monthlyProgress: Array<{
+    month: string
+    credits: number
+    grade: number
+  }>
+  achievements: {
+    totalBadges: number
+    earnedBadges: number
+    totalMissions: number
+    completedMissions: number
+    totalPoints: number
+    level: number
+    levelName: string
+    nextLevel: string | null
+    nextLevelPoints: number
+    pointsToNextLevel: number
+  }
+  pointsBySource: Array<{
+    source: string
+    total: number
+    count: number
+  }>
 }
 
 export default function Estadisticas() {
+  const [stats, setStats] = useState<StatsData | null>(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    fetchStats()
+  }, [])
+
+  const fetchStats = async () => {
+    try {
+      const response = await fetch("/api/stats")
+      if (!response.ok) throw new Error("Error al cargar estadísticas")
+      const data = await response.json()
+      setStats(data)
+    } catch (error) {
+      console.error("Error:", error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="w-8 h-8 text-blue-500 animate-spin" />
+        <span className="ml-2 text-gray-600 dark:text-gray-400">Cargando estadísticas...</span>
+      </div>
+    )
+  }
+
+  if (!stats) {
+    return (
+      <div className="text-center py-12">
+        <p className="text-gray-500 dark:text-gray-400">Error al cargar las estadísticas</p>
+        <button
+          onClick={fetchStats}
+          className="mt-4 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+        >
+          Reintentar
+        </button>
+      </div>
+    )
+  }
+
   const creditProgress = Math.round(
-    (mockStats.overall.creditsApproved / mockStats.overall.totalCredits) * 100
+    (stats.overall.creditsApproved / stats.overall.totalCredits) * 100
   )
 
   const courseProgress = Math.round(
-    (mockStats.overall.coursesCompleted / mockStats.overall.totalCourses) * 100
+    (stats.overall.coursesCompleted / stats.overall.totalCourses) * 100
   )
 
   return (
@@ -79,7 +127,7 @@ export default function Estadisticas() {
             <div>
               <p className="text-sm text-gray-500 dark:text-gray-400">Créditos</p>
               <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                {mockStats.overall.creditsApproved}/{mockStats.overall.totalCredits}
+                {stats.overall.creditsApproved}/{stats.overall.totalCredits}
               </p>
             </div>
           </div>
@@ -100,12 +148,12 @@ export default function Estadisticas() {
             <div>
               <p className="text-sm text-gray-500 dark:text-gray-400">Promedio</p>
               <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                {mockStats.overall.averageGrade}
+                {stats.overall.averageGrade.toFixed(1)}
               </p>
             </div>
           </div>
-          <p className="mt-3 text-sm text-green-600 dark:text-green-400">
-            ↑ 0.2 desde el último semestre
+          <p className={`mt-3 text-sm ${stats.overall.gradeTrend >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+            {stats.overall.gradeTrend >= 0 ? '↑' : '↓'} {Math.abs(stats.overall.gradeTrend).toFixed(1)} desde el último semestre
           </p>
         </div>
 
@@ -117,7 +165,7 @@ export default function Estadisticas() {
             <div>
               <p className="text-sm text-gray-500 dark:text-gray-400">Nivel</p>
               <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                {mockStats.achievements.level}
+                {stats.achievements.level}
               </p>
             </div>
           </div>
@@ -125,12 +173,14 @@ export default function Estadisticas() {
             <div
               className="h-full bg-purple-500 rounded-full"
               style={{
-                width: `${(mockStats.achievements.totalPoints / mockStats.achievements.nextLevelPoints) * 100}%`
+                width: stats.achievements.nextLevelPoints > 0
+                  ? `${(stats.achievements.totalPoints / stats.achievements.nextLevelPoints) * 100}%`
+                  : "100%"
               }}
             />
           </div>
           <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-            {mockStats.achievements.totalPoints}/{mockStats.achievements.nextLevelPoints} pts
+            {stats.achievements.totalPoints}/{stats.achievements.nextLevelPoints} pts
           </p>
         </div>
 
@@ -142,12 +192,12 @@ export default function Estadisticas() {
             <div>
               <p className="text-sm text-gray-500 dark:text-gray-400">Insignias</p>
               <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                {mockStats.achievements.earnedBadges}/{mockStats.achievements.totalBadges}
+                {stats.achievements.earnedBadges}/{stats.achievements.totalBadges}
               </p>
             </div>
           </div>
           <p className="mt-3 text-sm text-yellow-600 dark:text-yellow-400">
-            {mockStats.achievements.completedMissions} misiones completadas
+            {stats.achievements.completedMissions} misiones completadas
           </p>
         </div>
       </div>
@@ -160,12 +210,12 @@ export default function Estadisticas() {
             Progreso por Categoría
           </h2>
           <div className="space-y-4">
-            {mockStats.byCategory.map((category) => (
+            {stats.byCategory.map((category) => (
               <div key={category.category}>
                 <div className="flex items-center justify-between text-sm mb-1">
                   <span className="text-gray-600 dark:text-gray-400">{category.category}</span>
                   <span className="font-medium text-gray-900 dark:text-white">
-                    {category.approved}/{category.total} ({category.percentage}%)
+                    {category.credits}/{category.totalCredits} ({category.percentage}%)
                   </span>
                 </div>
                 <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
@@ -221,7 +271,7 @@ export default function Estadisticas() {
           </div>
           <div className="mt-4 text-center">
             <p className="text-gray-600 dark:text-gray-400">
-              {mockStats.overall.coursesCompleted} de {mockStats.overall.totalCourses} cursos aprobados
+              {stats.overall.coursesCompleted} de {stats.overall.totalCourses} cursos aprobados
             </p>
           </div>
         </div>
@@ -233,7 +283,7 @@ export default function Estadisticas() {
           Progreso por Semestre
         </h2>
         <div className="flex items-end justify-between h-40">
-          {mockStats.monthlyProgress.map((month, index) => {
+          {stats.monthlyProgress.map((month) => {
             const height = (month.credits / 35) * 100
             return (
               <div key={month.month} className="flex flex-col items-center flex-1">
@@ -253,6 +303,29 @@ export default function Estadisticas() {
         </div>
       </div>
 
+      {/* Points by Source */}
+      <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
+        <h2 className="font-semibold text-gray-900 dark:text-white mb-4">
+          Puntos por Fuente
+        </h2>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {stats.pointsBySource.map((source) => (
+            <div key={source.source} className="text-center p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+              <Target className="w-8 h-8 text-purple-600 dark:text-purple-400 mx-auto mb-2" />
+              <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                {source.total.toLocaleString()}
+              </p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                {source.source.replace(/_/g, " ").toLowerCase()}
+              </p>
+              <p className="text-xs text-gray-400 dark:text-gray-500">
+                {source.count} veces
+              </p>
+            </div>
+          ))}
+        </div>
+      </div>
+
       {/* Achievements Summary */}
       <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
         <h2 className="font-semibold text-gray-900 dark:text-white mb-4">
@@ -262,30 +335,30 @@ export default function Estadisticas() {
           <div className="text-center p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
             <Target className="w-8 h-8 text-purple-600 dark:text-purple-400 mx-auto mb-2" />
             <p className="text-2xl font-bold text-gray-900 dark:text-white">
-              {mockStats.achievements.totalPoints.toLocaleString()}
+              {stats.achievements.totalPoints.toLocaleString()}
             </p>
             <p className="text-sm text-gray-500 dark:text-gray-400">Puntos Totales</p>
           </div>
           <div className="text-center p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
             <Trophy className="w-8 h-8 text-yellow-600 dark:text-yellow-400 mx-auto mb-2" />
             <p className="text-2xl font-bold text-gray-900 dark:text-white">
-              {mockStats.achievements.earnedBadges}
+              {stats.achievements.earnedBadges}
             </p>
             <p className="text-sm text-gray-500 dark:text-gray-400">Insignias</p>
           </div>
           <div className="text-center p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
             <Clock className="w-8 h-8 text-blue-600 dark:text-blue-400 mx-auto mb-2" />
             <p className="text-2xl font-bold text-gray-900 dark:text-white">
-              {mockStats.achievements.completedMissions}
+              {stats.achievements.completedMissions}
             </p>
             <p className="text-sm text-gray-500 dark:text-gray-400">Misiones</p>
           </div>
           <div className="text-center p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
             <Award className="w-8 h-8 text-green-600 dark:text-green-400 mx-auto mb-2" />
             <p className="text-2xl font-bold text-gray-900 dark:text-white">
-              Nivel {mockStats.achievements.level}
+              Nivel {stats.achievements.level}
             </p>
-            <p className="text-sm text-gray-500 dark:text-gray-400">Rango Actual</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400">{stats.achievements.levelName}</p>
           </div>
         </div>
       </div>

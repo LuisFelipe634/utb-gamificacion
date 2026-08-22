@@ -10,70 +10,117 @@ export async function GET() {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 })
     }
 
-    const userId = session.user.id
-
-    const student = await prisma.studentProfile.findUnique({
-      where: { userId },
+    const user = await prisma.user.findUnique({
+      where: { id: session.user.id as string },
       include: {
-        program: true,
-        user: {
-          select: {
-            name: true,
-            email: true
+        studentProfile: {
+          include: {
+            program: true,
+            enrollments: {
+              include: {
+                course: true
+              }
+            },
+            academicHistory: true,
+            recommendations: true
           }
+        },
+        points: true,
+        missions: {
+          include: {
+            mission: true
+          }
+        },
+        badges: {
+          include: {
+            badge: true
+          }
+        },
+        notifications: {
+          where: { isRead: false },
+          orderBy: { createdAt: "desc" },
+          take: 5
+        },
+        activities: {
+          orderBy: { createdAt: "desc" },
+          take: 10
         }
       }
     })
 
-    if (!student) {
-      return NextResponse.json({ error: "Perfil no encontrado" }, { status: 404 })
+    if (!user) {
+      return NextResponse.json({ error: "Usuario no encontrado" }, { status: 404 })
     }
 
-    // Calcular estadísticas
-    const totalCredits = student.totalCredits
-    const averageGrade = student.averageGrade
+    // Calcular puntos totales
+    const totalPoints = user.points.reduce((acc, p) => acc + p.amount, 0)
 
-    // Obtener insignias recientes
-    const recentBadges = await prisma.studentBadge.findMany({
-      where: { studentId: userId },
-      include: { badge: true },
-      orderBy: { earnedAt: "desc" },
-      take: 3
+    // Obtener nivel actual
+    const levels = await prisma.level.findMany({
+      orderBy: { number: "asc" }
     })
 
-    // Obtener misiones activas
-    const activeMissions = await prisma.studentMission.findMany({
-      where: {
-        studentId: userId,
-        status: { in: ["PENDIENTE", "EN_PROGRESO"] }
-      },
-      include: { mission: true },
-      take: 3
-    })
+    let currentLevel = levels[0]
+    let nextLevel = levels[1]
 
-    // Obtener notificaciones no leídas
-    const unreadNotifications = await prisma.notification.count({
-      where: {
-        userId,
-        isRead: false
+    for (let i = levels.length - 1; i >= 0; i--) {
+      if (totalPoints >= levels[i].minPoints) {
+        currentLevel = levels[i]
+        nextLevel = levels[i + 1] || null
+        break
       }
-    })
+    }
+
+    // Calcular misiones activas y completadas
+    const activeMissions = user.missions.filter(
+      (m) => m.status === "EN_PROGRESO" || m.status === "PENDIENTE"
+    )
+    const completedMissions = user.missions.filter(
+      (m) => m.status === "COMPLETADA" || m.status === "VERIFICADA"
+    )
 
     return NextResponse.json({
-      student: {
-        ...student,
-        name: student.user.name,
-        email: student.user.email,
-        programName: student.program.name
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role
       },
+      profile: user.studentProfile,
       stats: {
-        totalCredits,
-        averageGrade,
-        level: student.level
+        totalPoints,
+        currentLevel: currentLevel?.name || "Novato",
+        currentLevelNumber: currentLevel?.number || 1,
+        nextLevel: nextLevel?.name || null,
+        nextLevelPoints: nextLevel?.minPoints || 0,
+        pointsToNextLevel: nextLevel ? nextLevel.minPoints - totalPoints : 0,
+        activeMissionsCount: activeMissions.length,
+        completedMissionsCount: completedMissions.length,
+        badgesCount: user.badges.length
       },
-      recentBadges,
-      activeMissions,
-      unreadNotifications
+      missions: user.missions.map((m) => ({
+        id: m.id,
+        title: m.mission.title,
+        description: m.mission.description,
+        type: m.mission.type,
+        points: m.mission.pointsReward,
+        progress: m.progress,
+        status: m.status,
+        completedAt: m.completedAt
+      })),
+      recentBadges: user.badges.slice(0, 5).map((b) => ({
+        id: b.badge.id,
+        name: b.badge.name,
+        icon: b.badge.iconUrl,
+        earned: b.earnedAt
+      })),
+      notifications: user.notifications,
+      unreadCount: await prisma.notification.count({
+        where: {
+          userId: user.id as string,
+          isRead: false
+        }
+      })
     })
   } catch (error) {
     console.error("Error fetching student data:", error)

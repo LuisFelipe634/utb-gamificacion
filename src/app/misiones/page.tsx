@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import {
   Target,
   Trophy,
@@ -10,100 +10,42 @@ import {
   Flame,
   Zap,
   Award,
-  Filter
+  Filter,
+  Loader2,
+  Play,
+  Check
 } from "lucide-react"
 
-// Datos de ejemplo
-const mockMissions = [
-  {
-    id: 1,
-    title: "Planificar Próximo Semestre",
-    description: "Crea un plan de estudio para el próximo semestre incluyendo cursos y horarios",
-    type: "PLANIFICACION",
-    points: 150,
-    progress: 60,
-    status: "EN_PROGRESO",
-    icon: "📋",
-    difficulty: "Fácil",
-    deadline: "2024-08-30"
-  },
-  {
-    id: 2,
-    title: "Completar Taller de Bases de Datos",
-    description: "Realiza el taller práctico de SQL y diseño de bases de datos",
-    type: "ACADEMICO",
-    points: 200,
-    progress: 30,
-    status: "EN_PROGRESO",
-    icon: "🗄️",
-    difficulty: "Media",
-    deadline: "2024-09-15"
-  },
-  {
-    id: 3,
-    title: "Mejorar Nota en Cálculo III",
-    description: "Incrementa tu promedio en Cálculo III al menos 0.5 puntos",
-    type: "MEJORA_CONTINUA",
-    points: 250,
-    progress: 45,
-    status: "EN_PROGRESO",
-    icon: "📈",
-    difficulty: "Difícil",
-    deadline: "2024-10-01"
-  },
-  {
-    id: 4,
-    title: "Asistir a 5 Clases Seguidas",
-    description: "Mantén asistencia perfecta por 5 clases consecutivas",
-    type: "HABITO_ESTUDIO",
-    points: 100,
-    progress: 80,
-    status: "EN_PROGRESO",
-    icon: "📅",
-    difficulty: "Fácil",
-    deadline: null
-  },
-  {
-    id: 5,
-    title: "Mentorar a un Compañero",
-    description: "Ayuda a un compañero con una materia que domina",
-    type: "IMPACTO_SOCIAL",
-    points: 300,
-    progress: 0,
-    status: "PENDIENTE",
-    icon: "👨‍🏫",
-    difficulty: "Media",
-    deadline: null
-  },
-  {
-    id: 6,
-    title: "Completar Curso de Electiva",
-    description: "Finaliza exitosamente un curso electivo de tu elección",
-    type: "ACADEMICO",
-    points: 200,
-    progress: 100,
-    status: "COMPLETADA",
-    icon: "🎓",
-    difficulty: "Media",
-    deadline: null,
-    completedAt: "2024-07-15"
-  },
-  {
-    id: 7,
-    title: "Estudiar 10 Horas en una Semana",
-    description: "Registra al menos 10 horas de estudio autónomo",
-    type: "HABITO_ESTUDIO",
-    points: 150,
-    progress: 100,
-    status: "COMPLETADA",
-    icon: "⏰",
-    difficulty: "Fácil",
-    deadline: null,
-    completedAt: "2024-07-10"
-  }
-]
+interface Mission {
+  id: string
+  title: string
+  description: string
+  type: string
+  points: number
+  requiredLevel: number | null
+  startDate: string | null
+  endDate: string | null
+  course: {
+    id: string
+    name: string
+    code: string
+  } | null
+  studentMissionId: string | null
+  status: string
+  progress: number
+  completedAt: string | null
+  evidence: string | null
+}
 
-const typeConfig = {
+interface MissionStats {
+  total: number
+  pending: number
+  inProgress: number
+  completed: number
+  totalPointsEarned: number
+}
+
+const typeConfig: Record<string, { label: string; color: string; bg: string }> = {
   ACADEMICO: { label: "Académico", color: "text-blue-600 dark:text-blue-400", bg: "bg-blue-100 dark:bg-blue-900/30" },
   PLANIFICACION: { label: "Planificación", color: "text-purple-600 dark:text-purple-400", bg: "bg-purple-100 dark:bg-purple-900/30" },
   MEJORA_CONTINUA: { label: "Mejora", color: "text-green-600 dark:text-green-400", bg: "bg-green-100 dark:bg-green-900/30" },
@@ -111,32 +53,85 @@ const typeConfig = {
   IMPACTO_SOCIAL: { label: "Social", color: "text-pink-600 dark:text-pink-400", bg: "bg-pink-100 dark:bg-pink-900/30" }
 }
 
-const statusConfig = {
+const statusConfig: Record<string, { label: string; color: string; icon: React.ComponentType<{ className?: string }> }> = {
+  NO_ASIGNADA: { label: "Disponible", color: "text-gray-500 dark:text-gray-400", icon: Target },
   PENDIENTE: { label: "Pendiente", color: "text-gray-500 dark:text-gray-400", icon: Clock },
   EN_PROGRESO: { label: "En Progreso", color: "text-blue-600 dark:text-blue-400", icon: Target },
   COMPLETADA: { label: "Completada", color: "text-green-600 dark:text-green-400", icon: CheckCircle },
   VERIFICADA: { label: "Verificada", color: "text-purple-600 dark:text-purple-400", icon: Award }
 }
 
-const difficultyConfig = {
+const difficultyConfig: Record<string, { color: string; icon: React.ComponentType<{ className?: string }> }> = {
   "Fácil": { color: "text-green-600 dark:text-green-400", icon: Zap },
   "Media": { color: "text-yellow-600 dark:text-yellow-400", icon: Flame },
   "Difícil": { color: "text-red-600 dark:text-red-400", icon: Star }
 }
 
 export default function Misiones() {
+  const [missions, setMissions] = useState<Mission[]>([])
+  const [stats, setStats] = useState<MissionStats | null>(null)
   const [filter, setFilter] = useState<string>("all")
+  const [loading, setLoading] = useState(true)
+  const [actionLoading, setActionLoading] = useState<string | null>(null)
 
-  const filteredMissions = mockMissions.filter((mission) => {
+  useEffect(() => {
+    fetchMissions()
+  }, [])
+
+  const fetchMissions = async () => {
+    try {
+      const response = await fetch("/api/missions")
+      if (!response.ok) throw new Error("Error al cargar misiones")
+      const data = await response.json()
+      setMissions(data.missions)
+      setStats(data.stats)
+    } catch (error) {
+      console.error("Error:", error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleMissionAction = async (missionId: string, action: "accept" | "start" | "complete") => {
+    setActionLoading(missionId)
+    try {
+      const response = await fetch("/api/missions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ missionId, action })
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || "Error al procesar misión")
+      }
+
+      // Recargar misiones
+      await fetchMissions()
+    } catch (error) {
+      console.error("Error:", error)
+      alert(error instanceof Error ? error.message : "Error al procesar la misión")
+    } finally {
+      setActionLoading(null)
+    }
+  }
+
+  const filteredMissions = missions.filter((mission) => {
     if (filter === "all") return true
-    if (filter === "active") return mission.status === "EN_PROGRESO"
+    if (filter === "active") return mission.status === "EN_PROGRESO" || mission.status === "PENDIENTE"
     if (filter === "completed") return mission.status === "COMPLETADA" || mission.status === "VERIFICADA"
+    if (filter === "available") return mission.status === "NO_ASIGNADA"
     return mission.type === filter
   })
 
-  const totalPoints = mockMissions
-    .filter((m) => m.status === "COMPLETADA" || m.status === "VERIFICADA")
-    .reduce((acc, m) => acc + m.points, 0)
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="w-8 h-8 text-blue-500 animate-spin" />
+        <span className="ml-2 text-gray-600 dark:text-gray-400">Cargando misiones...</span>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">
@@ -151,16 +146,39 @@ export default function Misiones() {
         <div className="flex items-center gap-2 px-4 py-2 bg-yellow-100 dark:bg-yellow-900/30 rounded-lg">
           <Trophy className="w-5 h-5 text-yellow-600 dark:text-yellow-400" />
           <span className="font-semibold text-yellow-700 dark:text-yellow-400">
-            {totalPoints} pts ganados
+            {stats?.totalPointsEarned || 0} pts ganados
           </span>
         </div>
       </div>
+
+      {/* Stats */}
+      {stats && (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700">
+            <p className="text-sm text-gray-500 dark:text-gray-400">Total</p>
+            <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.total}</p>
+          </div>
+          <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700">
+            <p className="text-sm text-gray-500 dark:text-gray-400">Pendientes</p>
+            <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.pending}</p>
+          </div>
+          <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700">
+            <p className="text-sm text-gray-500 dark:text-gray-400">En Progreso</p>
+            <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">{stats.inProgress}</p>
+          </div>
+          <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700">
+            <p className="text-sm text-gray-500 dark:text-gray-400">Completadas</p>
+            <p className="text-2xl font-bold text-green-600 dark:text-green-400">{stats.completed}</p>
+          </div>
+        </div>
+      )}
 
       {/* Filters */}
       <div className="flex items-center gap-2 flex-wrap">
         <Filter className="w-5 h-5 text-gray-400" />
         {[
           { key: "all", label: "Todas" },
+          { key: "available", label: "Disponibles" },
           { key: "active", label: "Activas" },
           { key: "completed", label: "Completadas" }
         ].map((f) => (
@@ -181,11 +199,10 @@ export default function Misiones() {
       {/* Missions Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {filteredMissions.map((mission) => {
-          const status = statusConfig[mission.status as keyof typeof statusConfig]
-          const type = typeConfig[mission.type as keyof typeof typeConfig]
-          const difficulty = difficultyConfig[mission.difficulty as keyof typeof difficultyConfig]
+          const status = statusConfig[mission.status] || statusConfig.NO_ASIGNADA
+          const type = typeConfig[mission.type] || typeConfig.ACADEMICO
           const StatusIcon = status.icon
-          const DiffIcon = difficulty.icon
+          const isActionLoading = actionLoading === mission.id
 
           return (
             <div
@@ -194,11 +211,15 @@ export default function Misiones() {
             >
               {/* Header */}
               <div className="flex items-start justify-between mb-3">
-                <span className="text-3xl">{mission.icon}</span>
+                <span className="text-3xl">
+                  {mission.type === "ACADEMICO" ? "📚" :
+                   mission.type === "PLANIFICACION" ? "📋" :
+                   mission.type === "MEJORA_CONTINUA" ? "📈" :
+                   mission.type === "HABITO_ESTUDIO" ? "📅" : "👥"}
+                </span>
                 <div className="flex items-center gap-1">
-                  <DiffIcon className={`w-4 h-4 ${difficulty.color}`} />
-                  <span className={`text-xs font-medium ${difficulty.color}`}>
-                    {mission.difficulty}
+                  <span className="text-sm text-yellow-600 dark:text-yellow-400 font-medium">
+                    +{mission.points}
                   </span>
                 </div>
               </div>
@@ -216,8 +237,15 @@ export default function Misiones() {
                 {type.label}
               </div>
 
+              {/* Course if any */}
+              {mission.course && (
+                <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
+                  📖 {mission.course.code} - {mission.course.name}
+                </p>
+              )}
+
               {/* Progress */}
-              {mission.status === "EN_PROGRESO" && (
+              {(mission.status === "EN_PROGRESO" || mission.status === "PENDIENTE") && mission.progress > 0 && (
                 <div className="mb-3">
                   <div className="flex items-center justify-between text-sm mb-1">
                     <span className="text-gray-600 dark:text-gray-400">Progreso</span>
@@ -240,15 +268,69 @@ export default function Misiones() {
                   <StatusIcon className={`w-4 h-4 ${status.color}`} />
                   <span className={`text-sm ${status.color}`}>{status.label}</span>
                 </div>
-                <div className="flex items-center gap-1 text-yellow-600 dark:text-yellow-400">
-                  <Trophy className="w-4 h-4" />
-                  <span className="text-sm font-medium">+{mission.points}</span>
-                </div>
+
+                {/* Action Buttons */}
+                {mission.status === "NO_ASIGNADA" && (
+                  <button
+                    onClick={() => handleMissionAction(mission.id, "accept")}
+                    disabled={isActionLoading}
+                    className="px-3 py-1 bg-blue-500 text-white text-sm rounded-lg hover:bg-blue-600 disabled:opacity-50"
+                  >
+                    {isActionLoading ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      "Aceptar"
+                    )}
+                  </button>
+                )}
+                {mission.status === "PENDIENTE" && (
+                  <button
+                    onClick={() => handleMissionAction(mission.id, "start")}
+                    disabled={isActionLoading}
+                    className="px-3 py-1 bg-green-500 text-white text-sm rounded-lg hover:bg-green-600 disabled:opacity-50 flex items-center gap-1"
+                  >
+                    {isActionLoading ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <>
+                        <Play className="w-3 h-3" />
+                        Iniciar
+                      </>
+                    )}
+                  </button>
+                )}
+                {mission.status === "EN_PROGRESO" && (
+                  <button
+                    onClick={() => handleMissionAction(mission.id, "complete")}
+                    disabled={isActionLoading}
+                    className="px-3 py-1 bg-purple-500 text-white text-sm rounded-lg hover:bg-purple-600 disabled:opacity-50 flex items-center gap-1"
+                  >
+                    {isActionLoading ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <>
+                        <Check className="w-3 h-3" />
+                        Completar
+                      </>
+                    )}
+                  </button>
+                )}
               </div>
             </div>
           )
         })}
       </div>
+
+      {filteredMissions.length === 0 && (
+        <div className="text-center py-12">
+          <Target className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
+          <p className="text-gray-500 dark:text-gray-400">
+            {filter === "all"
+              ? "No hay misiones disponibles"
+              : "No hay misiones en esta categoría"}
+          </p>
+        </div>
+      )}
     </div>
   )
 }

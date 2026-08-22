@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import {
   Trophy,
   Award,
@@ -9,99 +9,31 @@ import {
   Users,
   TrendingUp,
   Lock,
-  CheckCircle
+  CheckCircle,
+  Loader2
 } from "lucide-react"
 
-// Datos de ejemplo
-const mockBadges = [
-  {
-    id: 1,
-    name: "Explorador",
-    description: "Completa tu primer semestre con todas las materias",
-    icon: "🎯",
-    category: "PROGRESO",
-    required: "100% cursos semestre 1",
-    earned: true,
-    earnedDate: "2024-03-15"
-  },
-  {
-    id: 2,
-    name: "Constante",
-    description: "Asiste a clases por 4 semanas consecutivas sin faltar",
-    icon: "📅",
-    category: "HABITO",
-    required: "4 semanas sin faltar",
-    earned: true,
-    earnedDate: "2024-04-20"
-  },
-  {
-    id: 3,
-    name: "Mentor",
-    description: "Ayuda a 3 compañeros a aprobar un examen",
-    icon: "👨‍🏫",
-    category: "IMPACTO_SOCIAL",
-    required: "3 compañeros ayudados",
-    earned: true,
-    earnedDate: "2024-05-10"
-  },
-  {
-    id: 4,
-    name: "Excelencia Académica",
-    description: "Mantén un promedio superior a 4.5 por un semestre",
-    icon: "⭐",
-    category: "RENDIMIENTO",
-    required: "Promedio > 4.5",
-    earned: false,
-    progress: 80,
-    current: "4.2"
-  },
-  {
-    id: 5,
-    name: "Velocista",
-    description: "Aprueba todos los cursos de un semestre en el primer intento",
-    icon: "🚀",
-    category: "PROGRESO",
-    required: "100% aprobados primer intento",
-    earned: false,
-    progress: 60,
-    current: "4/6 cursos"
-  },
-  {
-    id: 6,
-    name: "Especialista",
-    description: "Obtén nota perfecta en 3 cursos diferentes",
-    icon: "🏆",
-    category: "COMPETENCIA",
-    required: "3 cursos con nota 5.0",
-    earned: false,
-    progress: 33,
-    current: "1/3 cursos"
-  },
-  {
-    id: 7,
-    name: "Investigador",
-    description: "Participa en un proyecto de investigación",
-    icon: "🔬",
-    category: "IMPACTO_SOCIAL",
-    required: "1 proyecto de investigación",
-    earned: false,
-    progress: 0,
-    current: "No iniciado"
-  },
-  {
-    id: 8,
-    name: "Líder",
-    description: "Organiza un evento académico con más de 20 asistentes",
-    icon: "👑",
-    category: "IMPACTO_SOCIAL",
-    required: "1 evento organizado",
-    earned: false,
-    progress: 0,
-    current: "No iniciado"
-  }
-]
+interface Badge {
+  id: string
+  name: string
+  description: string
+  icon: string
+  category: string
+  requiredLevel: number | null
+  pointsRequired: number | null
+  earned: boolean
+  earnedAt: string | null
+  evidence: string | null
+}
 
-const categoryConfig = {
+interface BadgeStats {
+  total: number
+  earned: number
+  percentage: number
+  byCategory: Record<string, { total: number; earned: number }>
+}
+
+const categoryConfig: Record<string, { label: string; color: string; bg: string; icon: React.ComponentType<{ className?: string }> }> = {
   PROGRESO: { label: "Progreso", color: "text-blue-600 dark:text-blue-400", bg: "bg-blue-100 dark:bg-blue-900/30", icon: TrendingUp },
   HABITO: { label: "Hábito", color: "text-orange-600 dark:text-orange-400", bg: "bg-orange-100 dark:bg-orange-900/30", icon: Target },
   COMPETENCIA: { label: "Competencia", color: "text-purple-600 dark:text-purple-400", bg: "bg-purple-100 dark:bg-purple-900/30", icon: Award },
@@ -110,16 +42,44 @@ const categoryConfig = {
 }
 
 export default function Logros() {
+  const [badges, setBadges] = useState<Badge[]>([])
+  const [stats, setStats] = useState<BadgeStats | null>(null)
   const [filter, setFilter] = useState<string>("all")
+  const [loading, setLoading] = useState(true)
 
-  const filteredBadges = mockBadges.filter((badge) => {
+  useEffect(() => {
+    fetchBadges()
+  }, [])
+
+  const fetchBadges = async () => {
+    try {
+      const response = await fetch("/api/badges")
+      if (!response.ok) throw new Error("Error al cargar insignias")
+      const data = await response.json()
+      setBadges(data.badges)
+      setStats(data.stats)
+    } catch (error) {
+      console.error("Error:", error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const filteredBadges = badges.filter((badge) => {
     if (filter === "all") return true
     if (filter === "earned") return badge.earned
     if (filter === "locked") return !badge.earned
     return badge.category === filter
   })
 
-  const earnedCount = mockBadges.filter((b) => b.earned).length
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="w-8 h-8 text-blue-500 animate-spin" />
+        <span className="ml-2 text-gray-600 dark:text-gray-400">Cargando insignias...</span>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">
@@ -132,32 +92,34 @@ export default function Logros() {
       </div>
 
       {/* Stats */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <div className="w-16 h-16 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-2xl flex items-center justify-center">
-              <Trophy className="w-8 h-8 text-white" />
+      {stats && (
+        <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="w-16 h-16 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-2xl flex items-center justify-center">
+                <Trophy className="w-8 h-8 text-white" />
+              </div>
+              <div>
+                <p className="text-3xl font-bold text-gray-900 dark:text-white">
+                  {stats.earned} / {stats.total}
+                </p>
+                <p className="text-gray-500 dark:text-gray-400">Insignias obtenidas</p>
+              </div>
             </div>
-            <div>
-              <p className="text-3xl font-bold text-gray-900 dark:text-white">
-                {earnedCount} / {mockBadges.length}
+            <div className="text-right">
+              <div className="h-3 w-32 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-gradient-to-r from-yellow-400 to-orange-500 rounded-full"
+                  style={{ width: `${stats.percentage}%` }}
+                />
+              </div>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                {stats.percentage}% completado
               </p>
-              <p className="text-gray-500 dark:text-gray-400">Insignias obtenidas</p>
             </div>
-          </div>
-          <div className="text-right">
-            <div className="h-3 w-32 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-gradient-to-r from-yellow-400 to-orange-500 rounded-full"
-                style={{ width: `${(earnedCount / mockBadges.length) * 100}%` }}
-              />
-            </div>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-              {Math.round((earnedCount / mockBadges.length) * 100)}% completado
-            </p>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Filters */}
       <div className="flex items-center gap-2 flex-wrap">
@@ -180,10 +142,36 @@ export default function Logros() {
         ))}
       </div>
 
+      {/* Category Filters */}
+      <div className="flex items-center gap-2 flex-wrap">
+        {Object.entries(categoryConfig).map(([key, config]) => {
+          const categoryStats = stats?.byCategory[key]
+          return (
+            <button
+              key={key}
+              onClick={() => setFilter(key)}
+              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors flex items-center gap-1 ${
+                filter === key
+                  ? `${config.bg} ${config.color}`
+                  : "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600"
+              }`}
+            >
+              <config.icon className="w-4 h-4" />
+              {config.label}
+              {categoryStats && (
+                <span className="ml-1 text-xs">
+                  ({categoryStats.earned}/{categoryStats.total})
+                </span>
+              )}
+            </button>
+          )
+        })}
+      </div>
+
       {/* Badges Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {filteredBadges.map((badge) => {
-          const category = categoryConfig[badge.category as keyof typeof categoryConfig]
+          const category = categoryConfig[badge.category] || categoryConfig.PROGRESO
           const CatIcon = category.icon
 
           return (
@@ -224,24 +212,14 @@ export default function Logros() {
               {badge.earned ? (
                 <div className="flex items-center gap-2 text-sm text-green-600 dark:text-green-400">
                   <CheckCircle className="w-4 h-4" />
-                  <span>Obtenida {badge.earnedDate}</span>
+                  <span>Obtenida {new Date(badge.earnedAt!).toLocaleDateString("es-ES")}</span>
                 </div>
               ) : (
                 <div>
-                  <div className="flex items-center justify-between text-sm mb-1">
-                    <span className="text-gray-600 dark:text-gray-400">{badge.current}</span>
-                    <span className="font-medium text-gray-900 dark:text-white">
-                      {badge.progress}%
-                    </span>
-                  </div>
-                  <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-gradient-to-r from-gray-400 to-gray-500 rounded-full"
-                      style={{ width: `${badge.progress}%` }}
-                    />
-                  </div>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                    Requiere: {badge.required}
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    {badge.requiredLevel && `Requiere nivel ${badge.requiredLevel}`}
+                    {badge.pointsRequired && `Requiere ${badge.pointsRequired} puntos`}
+                    {!badge.requiredLevel && !badge.pointsRequired && "Sigue trabajando para desbloquearla"}
                   </p>
                 </div>
               )}
@@ -249,6 +227,17 @@ export default function Logros() {
           )
         })}
       </div>
+
+      {filteredBadges.length === 0 && (
+        <div className="text-center py-12">
+          <Trophy className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
+          <p className="text-gray-500 dark:text-gray-400">
+            {filter === "all"
+              ? "No hay insignias disponibles"
+              : "No hay insignias en esta categoría"}
+          </p>
+        </div>
+      )}
     </div>
   )
 }

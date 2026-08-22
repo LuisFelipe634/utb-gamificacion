@@ -1,13 +1,40 @@
+import 'dotenv/config'
 import { PrismaClient } from '@prisma/client'
 import { PrismaPg } from '@prisma/adapter-pg'
 import bcrypt from 'bcryptjs'
 
 const connectionString = process.env.DATABASE_URL!
+console.log('🔗 Conectando a:', connectionString?.replace(/:([^@]+)@/, ':***@'))
 const adapter = new PrismaPg({ connectionString })
 const prisma = new PrismaClient({ adapter })
 
 async function main() {
   console.log('🌱 Iniciando seed de la base de datos...')
+
+  // Limpiar datos existentes (si los hay)
+  console.log('🧹 Limpiando datos existentes...')
+  await prisma.activity.deleteMany()
+  await prisma.notification.deleteMany()
+  await prisma.studentBadge.deleteMany()
+  await prisma.studentMission.deleteMany()
+  await prisma.point.deleteMany()
+  await prisma.recommendation.deleteMany()
+  await prisma.riskAlert.deleteMany()
+  await prisma.enrollment.deleteMany()
+  await prisma.academicRecord.deleteMany()
+  await prisma.studentProfile.deleteMany()
+  await prisma.teacherProfile.deleteMany()
+  await prisma.coordinatorProfile.deleteMany()
+  await prisma.user.deleteMany()
+  await prisma.prerequisite.deleteMany()
+  await prisma.mission.deleteMany()
+  await prisma.badge.deleteMany()
+  await prisma.level.deleteMany()
+  await prisma.course.deleteMany()
+  await prisma.semester.deleteMany()
+  await prisma.program.deleteMany()
+
+  console.log('✅ Datos limpiados')
 
   // Crear programa
   const program = await prisma.program.create({

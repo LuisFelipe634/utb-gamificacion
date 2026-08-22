@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import {
   Bell,
   AlertTriangle,
@@ -9,82 +9,51 @@ import {
   Target,
   Clock,
   CheckCircle,
-  X
+  X,
+  Loader2
 } from "lucide-react"
 
-// Datos de ejemplo
-const mockNotifications = [
-  {
-    id: 1,
-    type: "ALERTA_RIESGO",
-    title: "Riesgo de atraso en Redes",
-    message: "Faltan 2 créditos de prerrequisito para inscribir Redes de Computadores en el próximo semestre.",
-    isRead: false,
-    createdAt: "2024-08-20T10:30:00",
-    icon: AlertTriangle,
-    color: "text-yellow-600 dark:text-yellow-400",
-    bg: "bg-yellow-50 dark:bg-yellow-900/20"
-  },
-  {
-    id: 2,
-    type: "MISION_DISPONIBLE",
-    title: "Nueva misión disponible",
-    message: "Se ha desbloqueado la misión 'Investigador'. Participa en un proyecto de investigación y gana 300 puntos.",
-    isRead: false,
-    createdAt: "2024-08-19T14:20:00",
-    icon: Target,
-    color: "text-purple-600 dark:text-purple-400",
-    bg: "bg-purple-50 dark:bg-purple-900/20"
-  },
-  {
-    id: 3,
-    type: "LOGRO_OBTENIDO",
-    title: "¡Nueva insignia desbloqueada!",
-    message: "Has obtenido la insignia 'Constante' por asistir a clases por 4 semanas consecutivas.",
-    isRead: true,
-    createdAt: "2024-08-18T09:15:00",
-    icon: Trophy,
-    color: "text-green-600 dark:text-green-400",
-    bg: "bg-green-50 dark:bg-green-900/20"
-  },
-  {
-    id: 4,
-    type: "RECORDATORIO",
-    title: "Planifica tu próximo semestre",
-    message: "El periodo de inscripción abre en 2 semanas. Revisa tu malla y planifica tus cursos.",
-    isRead: true,
-    createdAt: "2024-08-17T11:00:00",
-    icon: Clock,
-    color: "text-blue-600 dark:text-blue-400",
-    bg: "bg-blue-50 dark:bg-blue-900/20"
-  },
-  {
-    id: 5,
-    type: "INFO",
-    title: "Actualización del sistema",
-    message: "Se han agregado nuevas estadísticas de progreso por competencia. ¡Revísalo!",
-    isRead: true,
-    createdAt: "2024-08-16T16:45:00",
-    icon: Info,
-    color: "text-gray-600 dark:text-gray-400",
-    bg: "bg-gray-50 dark:bg-gray-700/50"
-  },
-  {
-    id: 6,
-    type: "MISION_DISPONIBLE",
-    title: "Misión semanal disponible",
-    message: "Completa 5 horas de estudio autónomo esta semana y gana 100 puntos.",
-    isRead: false,
-    createdAt: "2024-08-15T08:00:00",
-    icon: Target,
-    color: "text-purple-600 dark:text-purple-400",
-    bg: "bg-purple-50 dark:bg-purple-900/20"
-  }
-]
+interface Notification {
+  id: string
+  title: string
+  message: string
+  type: string
+  isRead: boolean
+  link: string | null
+  createdAt: string
+}
+
+const typeConfig: Record<string, { icon: React.ComponentType<{ className?: string }>; color: string; bg: string }> = {
+  INFO: { icon: Info, color: "text-gray-600 dark:text-gray-400", bg: "bg-gray-50 dark:bg-gray-700/50" },
+  WARNING: { icon: AlertTriangle, color: "text-orange-600 dark:text-orange-400", bg: "bg-orange-50 dark:bg-orange-900/20" },
+  ALERTA_RIESGO: { icon: AlertTriangle, color: "text-yellow-600 dark:text-yellow-400", bg: "bg-yellow-50 dark:bg-yellow-900/20" },
+  LOGRO_OBTENIDO: { icon: Trophy, color: "text-green-600 dark:text-green-400", bg: "bg-green-50 dark:bg-green-900/20" },
+  MISION_DISPONIBLE: { icon: Target, color: "text-purple-600 dark:text-purple-400", bg: "bg-purple-50 dark:bg-purple-900/20" },
+  RECORDATORIO: { icon: Clock, color: "text-blue-600 dark:text-blue-400", bg: "bg-blue-50 dark:bg-blue-900/20" }
+}
 
 export default function Notificaciones() {
-  const [notifications, setNotifications] = useState(mockNotifications)
+  const [notifications, setNotifications] = useState<Notification[]>([])
   const [filter, setFilter] = useState<string>("all")
+  const [loading, setLoading] = useState(true)
+  const [actionLoading, setActionLoading] = useState<string | null>(null)
+
+  useEffect(() => {
+    fetchNotifications()
+  }, [])
+
+  const fetchNotifications = async () => {
+    try {
+      const response = await fetch("/api/notifications")
+      if (!response.ok) throw new Error("Error al cargar notificaciones")
+      const data = await response.json()
+      setNotifications(data.notifications)
+    } catch (error) {
+      console.error("Error:", error)
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const unreadCount = notifications.filter((n) => !n.isRead).length
 
@@ -94,18 +63,66 @@ export default function Notificaciones() {
     return notification.type === filter
   })
 
-  const markAsRead = (id: number) => {
-    setNotifications((prev) =>
-      prev.map((n) => (n.id === id ? { ...n, isRead: true } : n))
+  const markAsRead = async (id: string) => {
+    setActionLoading(id)
+    try {
+      await fetch("/api/notifications", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ notificationId: id, isRead: true })
+      })
+      setNotifications((prev) =>
+        prev.map((n) => (n.id === id ? { ...n, isRead: true } : n))
+      )
+    } catch (error) {
+      console.error("Error:", error)
+    } finally {
+      setActionLoading(null)
+    }
+  }
+
+  const markAllAsRead = async () => {
+    setActionLoading("all")
+    try {
+      const unreadIds = notifications.filter((n) => !n.isRead).map((n) => n.id)
+      await Promise.all(
+        unreadIds.map((id) =>
+          fetch("/api/notifications", {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ notificationId: id, isRead: true })
+          })
+        )
+      )
+      setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })))
+    } catch (error) {
+      console.error("Error:", error)
+    } finally {
+      setActionLoading(null)
+    }
+  }
+
+  const deleteNotification = async (id: string) => {
+    setActionLoading(id)
+    try {
+      await fetch(`/api/notifications?id=${id}`, {
+        method: "DELETE"
+      })
+      setNotifications((prev) => prev.filter((n) => n.id !== id))
+    } catch (error) {
+      console.error("Error:", error)
+    } finally {
+      setActionLoading(null)
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="w-8 h-8 text-blue-500 animate-spin" />
+        <span className="ml-2 text-gray-600 dark:text-gray-400">Cargando notificaciones...</span>
+      </div>
     )
-  }
-
-  const markAllAsRead = () => {
-    setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })))
-  }
-
-  const deleteNotification = (id: number) => {
-    setNotifications((prev) => prev.filter((n) => n.id !== id))
   }
 
   return (
@@ -123,8 +140,12 @@ export default function Notificaciones() {
         {unreadCount > 0 && (
           <button
             onClick={markAllAsRead}
-            className="px-4 py-2 text-sm font-medium text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
+            disabled={actionLoading === "all"}
+            className="px-4 py-2 text-sm font-medium text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors disabled:opacity-50"
           >
+            {actionLoading === "all" ? (
+              <Loader2 className="w-4 h-4 animate-spin inline mr-2" />
+            ) : null}
             Marcar todo como leído
           </button>
         )}
@@ -156,7 +177,9 @@ export default function Notificaciones() {
       {/* Notifications List */}
       <div className="space-y-3">
         {filteredNotifications.map((notification) => {
-          const Icon = notification.icon
+          const config = typeConfig[notification.type] || typeConfig.INFO
+          const Icon = config.icon
+          const isActionLoading = actionLoading === notification.id
 
           return (
             <div
@@ -169,8 +192,8 @@ export default function Notificaciones() {
             >
               <div className="flex items-start gap-4">
                 {/* Icon */}
-                <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${notification.bg}`}>
-                  <Icon className={`w-5 h-5 ${notification.color}`} />
+                <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${config.bg}`}>
+                  <Icon className={`w-5 h-5 ${config.color}`} />
                 </div>
 
                 {/* Content */}
@@ -206,16 +229,22 @@ export default function Notificaciones() {
                     {!notification.isRead && (
                       <button
                         onClick={() => markAsRead(notification.id)}
-                        className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
+                        disabled={isActionLoading}
+                        className="text-xs text-blue-600 dark:text-blue-400 hover:underline disabled:opacity-50"
                       >
                         Marcar como leído
                       </button>
                     )}
                     <button
                       onClick={() => deleteNotification(notification.id)}
-                      className="text-xs text-gray-400 hover:text-red-500"
+                      disabled={isActionLoading}
+                      className="text-xs text-gray-400 hover:text-red-500 disabled:opacity-50"
                     >
-                      <X className="w-4 h-4" />
+                      {isActionLoading ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <X className="w-4 h-4" />
+                      )}
                     </button>
                   </div>
                 </div>
