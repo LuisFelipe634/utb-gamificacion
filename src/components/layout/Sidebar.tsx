@@ -11,7 +11,8 @@ import {
   BarChart3,
   Settings,
   GraduationCap,
-  Users
+  Users,
+  UserRound
 } from "lucide-react"
 import { useSession } from "next-auth/react"
 
@@ -22,16 +23,23 @@ const navigation = [
   { name: "Logros", href: "/logros", icon: Trophy },
   { name: "Notificaciones", href: "/notificaciones", icon: Bell },
   { name: "Estadísticas", href: "/estadisticas", icon: BarChart3 },
+  { name: "Mi perfil", href: "/perfil", icon: UserRound },
 ]
 
 const teacherNavigation = [
   { name: "Acompañamiento docente", href: "/docentes", icon: Users }
 ]
 
+const coordinatorNavigation = [
+  { name: "Panel del programa", href: "/coordinacion", icon: BarChart3 },
+  { name: "Malla académica", href: "/coordinacion#malla", icon: BookOpen }
+]
+
 export function Sidebar() {
   const pathname = usePathname()
   const { data: session } = useSession()
   const isTeacher = session?.user?.role === "TEACHER"
+  const isCoordinator = session?.user?.role === "COORDINATOR"
 
   return (
     <aside className="w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col">
@@ -50,7 +58,7 @@ export function Sidebar() {
 
       {/* Navigation */}
       <nav className="flex-1 p-4 space-y-1">
-        {(isTeacher ? teacherNavigation : navigation).map((item) => {
+        {(isTeacher ? teacherNavigation : isCoordinator ? coordinatorNavigation : navigation).map((item) => {
           const isActive = pathname === item.href
           return (
             <Link

@@ -109,21 +109,23 @@ export function Header() {
 
         {/* User Profile */}
         <div className="flex items-center gap-3 pl-4 border-l border-gray-200 dark:border-gray-700">
-          <div className="w-9 h-9 bg-gradient-to-br from-green-400 to-blue-500 rounded-full flex items-center justify-center">
-            <span className="text-white font-semibold text-sm">
-              {status === "loading" ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                userInitials || getInitials(session?.user?.name)
-              )}
-            </span>
-          </div>
-          <div className="hidden md:block">
-            <p className="text-sm font-medium text-gray-900 dark:text-white">
-              {status === "loading" ? "Cargando..." : displayName}
-            </p>
-            <p className="text-xs text-gray-500 dark:text-gray-400">{roleLabel}</p>
-          </div>
+          <Link href={profileRole === "STUDENT" ? "/perfil" : profileRole === "TEACHER" ? "/docentes" : "/coordinacion"} className="flex items-center gap-3 rounded-lg p-1 hover:bg-gray-100 dark:hover:bg-gray-700">
+            <div className="w-9 h-9 bg-gradient-to-br from-green-400 to-blue-500 rounded-full flex items-center justify-center">
+              <span className="text-white font-semibold text-sm">
+                {status === "loading" ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  userInitials || getInitials(session?.user?.name)
+                )}
+              </span>
+            </div>
+            <div className="hidden md:block">
+              <p className="text-sm font-medium text-gray-900 dark:text-white">
+                {status === "loading" ? "Cargando..." : displayName}
+              </p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">{roleLabel}</p>
+            </div>
+          </Link>
           <button
             type="button"
             onClick={handleSignOut}

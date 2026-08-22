@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import {
   CheckCircle,
   Lock,
@@ -100,6 +100,15 @@ const statusConfig = {
 
 export default function MallaCurricular() {
   const [expandedSemesters, setExpandedSemesters] = useState<number[]>([1, 2, 3])
+  const [curriculum, setCurriculum] = useState<typeof mockCurriculum | null>(null)
+
+  useEffect(() => {
+    fetch("/api/curriculum").then(async (response) => {
+      if (!response.ok) throw new Error("No se pudo cargar la malla")
+      const data = await response.json()
+      setCurriculum(data.semesters)
+    }).catch(() => setCurriculum(mockCurriculum))
+  }, [])
 
   const toggleSemester = (semester: number) => {
     setExpandedSemesters((prev) =>
@@ -107,14 +116,15 @@ export default function MallaCurricular() {
     )
   }
 
-  const totalCredits = mockCurriculum.reduce(
-    (acc, sem) => acc + sem.courses.reduce((a, c) => a + c.credits, 0),
+  const displayedCurriculum = curriculum || mockCurriculum
+  const displayedTotalCredits = displayedCurriculum.reduce(
+    (acc, semester) => acc + semester.courses.reduce((total, course) => total + course.credits, 0),
     0
   )
-  const completedCredits = mockCurriculum
-    .flatMap((s) => s.courses)
-    .filter((c) => c.status === "completed")
-    .reduce((acc, c) => acc + c.credits, 0)
+  const displayedCompletedCredits = displayedCurriculum
+    .flatMap((semester) => semester.courses)
+    .filter((course) => course.status === "completed")
+    .reduce((acc, course) => acc + course.credits, 0)
 
   return (
     <div className="space-y-6">
@@ -138,12 +148,12 @@ export default function MallaCurricular() {
             <div>
               <h2 className="font-semibold text-gray-900 dark:text-white">Resumen de Avance</h2>
               <p className="text-sm text-gray-500 dark:text-gray-400">
-                {completedCredits} / {totalCredits} créditos aprobados
+                {displayedCompletedCredits} / {displayedTotalCredits} créditos aprobados
               </p>
             </div>
           </div>
           <span className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-            {Math.round((completedCredits / totalCredits) * 100)}%
+            {Math.round((displayedCompletedCredits / displayedTotalCredits) * 100)}%
           </span>
         </div>
 
@@ -160,7 +170,7 @@ export default function MallaCurricular() {
 
       {/* Curriculum Grid */}
       <div className="space-y-4">
-        {mockCurriculum.map((semester) => {
+        {displayedCurriculum.map((semester) => {
           const isExpanded = expandedSemesters.includes(semester.semester)
           const completedCount = semester.courses.filter((c) => c.status === "completed").length
           const totalCount = semester.courses.length

@@ -31,8 +31,13 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           return null
         }
 
+        const email = String(credentials.email).trim().toLowerCase()
+        if (!email.endsWith("@utb.edu.co")) {
+          return null
+        }
+
         const user = await prisma.user.findUnique({
-          where: { email: credentials.email as string },
+          where: { email },
           include: {
             studentProfile: true,
             teacherProfile: true,

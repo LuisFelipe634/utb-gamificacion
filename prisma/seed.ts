@@ -195,6 +195,31 @@ async function main() {
 
   console.log('✅ Usuario demo creado:', demoUser.email)
 
+  // nuevo usuario con perfil de estudiante
+  const secondPasswordHash = await bcrypt.hash('demo1234', 10)
+  const secondStudent = await prisma.user.create({
+    data: {
+      email: 'demo2@utb.edu.co',
+      name: 'Sara Peña',
+      passwordHash: secondPasswordHash,
+      role: 'STUDENT',
+      studentProfile: {
+        create: {
+          studentCode: '2020123456',
+          programId: program.id,
+          currentSemester: 6,
+          admissionYear: 2019,
+          totalCredits: 95,
+          averageGrade: 4.0,
+          level: 5
+        }
+      }
+    }
+  })
+
+  console.log('✅ Segundo estudiante creado:', secondStudent.email)
+
+  // Docentes
   const teacherUser = await prisma.user.create({
     data: {
       email: 'docente@utb.edu.co',
@@ -211,6 +236,23 @@ async function main() {
   })
 
   console.log('✅ Usuario docente creado:', teacherUser.email)
+
+  const coordinatorUser = await prisma.user.create({
+    data: {
+      email: 'coordinador@utb.edu.co',
+      name: 'Carlos Rodríguez',
+      passwordHash,
+      role: 'COORDINATOR',
+      coordinatorProfile: {
+        create: {
+          programId: program.id,
+          position: 'Coordinador de programa'
+        }
+      }
+    }
+  })
+
+  console.log('✅ Usuario coordinador creado:', coordinatorUser.email)
 
   console.log('🎉 Seed completado exitosamente!')
 }
