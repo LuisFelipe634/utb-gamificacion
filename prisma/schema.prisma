@@ -290,6 +290,9 @@ model StudentMission {
   progress    Int          @default(0)  // 0-100
   completedAt DateTime?
   evidence    String?      // URL o descripción de evidencia
+  verifiedBy  String?
+  verifiedAt  DateTime?
+  reviewComment String?
   createdAt   DateTime     @default(now())
 
   student     User         @relation(fields: [studentId], references: [id])
@@ -302,6 +305,7 @@ model StudentMission {
 enum MissionStatus {
   PENDIENTE
   EN_PROGRESO
+  EN_REVISION
   COMPLETADA
   VERIFICADA
   RECHAZADA

@@ -11,6 +11,10 @@ export async function GET() {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 })
     }
 
+    if (session.user.role !== "STUDENT") {
+      return NextResponse.json({ error: "Solo los estudiantes pueden gestionar misiones" }, { status: 403 })
+    }
+
     const userId = session.user.id as string
 
     // Obtener perfil del estudiante
@@ -69,7 +73,8 @@ export async function GET() {
         status: studentMission?.status || "NO_ASIGNADA",
         progress: studentMission?.progress || 0,
         completedAt: studentMission?.completedAt || null,
-        evidence: studentMission?.evidence || null
+        evidence: studentMission?.evidence || null,
+        reviewComment: studentMission?.reviewComment || null
       }
     })
 
@@ -106,9 +111,13 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 })
     }
 
+    if (session.user.role !== "STUDENT") {
+      return NextResponse.json({ error: "Solo los estudiantes pueden gestionar misiones" }, { status: 403 })
+    }
+
     const userId = session.user.id as string
     const body = await request.json()
-    const { missionId, action } = body
+    const { missionId, action, evidence } = body
 
     if (!missionId) {
       return NextResponse.json(
@@ -189,7 +198,7 @@ export async function POST(request: Request) {
 
     if (action === "start") {
       // Iniciar la misión
-      if (!existingMission || existingMission.status !== "PENDIENTE") {
+      if (!existingMission || !["PENDIENTE", "RECHAZADA"].includes(existingMission.status)) {
         return NextResponse.json(
           { error: "No puedes iniciar esta misión" },
           { status: 400 }
@@ -198,14 +207,22 @@ export async function POST(request: Request) {
 
       const studentMission = await prisma.studentMission.update({
         where: { id: existingMission.id },
-        data: { status: "EN_PROGRESO" }
+        data: {
+          status: "EN_PROGRESO",
+          progress: 0,
+          completedAt: null,
+          evidence: null,
+          verifiedBy: null,
+          verifiedAt: null,
+          reviewComment: null
+        }
       })
 
       return NextResponse.json({ studentMission })
     }
 
     if (action === "complete") {
-      // Completar la misión
+      // Enviar la misión a revisión; los puntos se otorgan tras la aprobación docente.
       if (!existingMission || existingMission.status !== "EN_PROGRESO") {
         return NextResponse.json(
           { error: "No puedes completar esta misión" },
@@ -213,51 +230,34 @@ export async function POST(request: Request) {
         )
       }
 
+      const submittedEvidence = typeof evidence === "string" ? evidence.trim() : existingMission.evidence?.trim()
+      if (!submittedEvidence) {
+        return NextResponse.json(
+          { error: "Debes adjuntar una evidencia antes de enviar la misión" },
+          { status: 400 }
+        )
+      }
+
       const studentMission = await prisma.studentMission.update({
         where: { id: existingMission.id },
         data: {
-          status: "COMPLETADA",
+          status: "EN_REVISION",
           progress: 100,
-          completedAt: new Date()
+          completedAt: new Date(),
+          evidence: submittedEvidence
         }
       })
 
-      // Otorgar puntos
-      await prisma.point.create({
-        data: {
-          userId,
-          amount: mission.pointsReward,
-          source: "MISION_COMPLETADA",
-          description: `Misión completada: ${mission.title}`
-        }
-      })
-
-      // Crear notificación de logro
+      // Notificar que la evidencia está pendiente de revisión.
       await prisma.notification.create({
         data: {
           userId,
-          title: "¡Misión completada!",
-          message: `Has ganado ${mission.pointsReward} puntos por completar: ${mission.title}`,
-          type: "LOGRO_OBTENIDO",
+          title: "Misión enviada a revisión",
+          message: `Tu evidencia para «${mission.title}» será revisada por un docente.`,
+          type: "INFO",
           link: "/misiones"
         }
       })
-
-      // Registrar actividad
-      await prisma.activity.create({
-        data: {
-          userId,
-          action: "MISION_COMPLETADA",
-          details: {
-            missionId: mission.id,
-            missionTitle: mission.title,
-            pointsEarned: mission.pointsReward
-          }
-        }
-      })
-
-      // Verificar si ganó alguna insignia
-      await checkAndAwardBadges(userId)
 
       return NextResponse.json({ studentMission })
     }
@@ -275,76 +275,3 @@ export async function POST(request: Request) {
   }
 }
 
-// Función para verificar y otorgar insignias automáticamente
-async function checkAndAwardBadges(userId: string) {
-  try {
-    const profile = await prisma.studentProfile.findUnique({
-      where: { userId }
-    })
-
-    if (!profile) return
-
-    // Obtener todas las insignias disponibles
-    const badges = await prisma.badge.findMany({
-      where: { isActive: true }
-    })
-
-    // Obtener insignias que ya tiene el estudiante
-    const earnedBadges = await prisma.studentBadge.findMany({
-      where: { studentId: userId }
-    })
-
-    const earnedBadgeIds = earnedBadges.map((eb) => eb.badgeId)
-
-    // Verificar cada insignia
-    for (const badge of badges) {
-      if (earnedBadgeIds.includes(badge.id)) continue
-
-      let shouldEarn = false
-
-      switch (badge.name) {
-        case "Excelencia":
-          // Promedio superior a 4.5
-          if (profile.averageGrade >= 4.5) shouldEarn = true
-          break
-        case "Explorador":
-          // Completar primer semestre
-          if (profile.currentSemester > 1) shouldEarn = true
-          break
-        case "Velocista":
-          // Aprobar todos los cursos del semestre actual
-          const enrollments = await prisma.enrollment.findMany({
-            where: {
-              studentId: profile.id,
-              status: "APROBADO"
-            }
-          })
-          if (enrollments.length >= 5) shouldEarn = true
-          break
-        // Agregar más condiciones para otras insignias...
-      }
-
-      if (shouldEarn) {
-        await prisma.studentBadge.create({
-          data: {
-            studentId: userId,
-            badgeId: badge.id
-          }
-        })
-
-        // Notificar al estudiante
-        await prisma.notification.create({
-          data: {
-            userId,
-            title: "¡Nueva insignia desbloqueada!",
-            message: `Has obtenido la insignia: ${badge.name}`,
-            type: "LOGRO_OBTENIDO",
-            link: "/logros"
-          }
-        })
-      }
-    }
-  } catch (error) {
-    console.error("Error checking badges:", error)
-  }
-}

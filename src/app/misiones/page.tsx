@@ -1,14 +1,11 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useEffectEvent } from "react"
 import {
   Target,
   Trophy,
   Clock,
   CheckCircle,
-  Star,
-  Flame,
-  Zap,
   Award,
   Filter,
   Loader2,
@@ -35,6 +32,7 @@ interface Mission {
   progress: number
   completedAt: string | null
   evidence: string | null
+  reviewComment: string | null
 }
 
 interface MissionStats {
@@ -57,14 +55,10 @@ const statusConfig: Record<string, { label: string; color: string; icon: React.C
   NO_ASIGNADA: { label: "Disponible", color: "text-gray-500 dark:text-gray-400", icon: Target },
   PENDIENTE: { label: "Pendiente", color: "text-gray-500 dark:text-gray-400", icon: Clock },
   EN_PROGRESO: { label: "En Progreso", color: "text-blue-600 dark:text-blue-400", icon: Target },
+  EN_REVISION: { label: "En revisión", color: "text-amber-600 dark:text-amber-400", icon: Clock },
   COMPLETADA: { label: "Completada", color: "text-green-600 dark:text-green-400", icon: CheckCircle },
-  VERIFICADA: { label: "Verificada", color: "text-purple-600 dark:text-purple-400", icon: Award }
-}
-
-const difficultyConfig: Record<string, { color: string; icon: React.ComponentType<{ className?: string }> }> = {
-  "Fácil": { color: "text-green-600 dark:text-green-400", icon: Zap },
-  "Media": { color: "text-yellow-600 dark:text-yellow-400", icon: Flame },
-  "Difícil": { color: "text-red-600 dark:text-red-400", icon: Star }
+  VERIFICADA: { label: "Verificada", color: "text-purple-600 dark:text-purple-400", icon: Award },
+  RECHAZADA: { label: "Requiere ajustes", color: "text-red-600 dark:text-red-400", icon: Target }
 }
 
 export default function Misiones() {
@@ -73,10 +67,7 @@ export default function Misiones() {
   const [filter, setFilter] = useState<string>("all")
   const [loading, setLoading] = useState(true)
   const [actionLoading, setActionLoading] = useState<string | null>(null)
-
-  useEffect(() => {
-    fetchMissions()
-  }, [])
+  const [evidence, setEvidence] = useState<Record<string, string>>({})
 
   const fetchMissions = async () => {
     try {
@@ -92,13 +83,21 @@ export default function Misiones() {
     }
   }
 
+  const loadMissions = useEffectEvent(fetchMissions)
+
+  useEffect(() => {
+    // Load mission data from the server when the page becomes available.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void loadMissions()
+  }, [])
+
   const handleMissionAction = async (missionId: string, action: "accept" | "start" | "complete") => {
     setActionLoading(missionId)
     try {
       const response = await fetch("/api/missions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ missionId, action })
+        body: JSON.stringify({ missionId, action, evidence: evidence[missionId] })
       })
 
       if (!response.ok) {
@@ -283,7 +282,7 @@ export default function Misiones() {
                     )}
                   </button>
                 )}
-                {mission.status === "PENDIENTE" && (
+                {(mission.status === "PENDIENTE" || mission.status === "RECHAZADA") && (
                   <button
                     onClick={() => handleMissionAction(mission.id, "start")}
                     disabled={isActionLoading}
@@ -299,21 +298,26 @@ export default function Misiones() {
                     )}
                   </button>
                 )}
-                {mission.status === "EN_PROGRESO" && (
-                  <button
-                    onClick={() => handleMissionAction(mission.id, "complete")}
-                    disabled={isActionLoading}
-                    className="px-3 py-1 bg-purple-500 text-white text-sm rounded-lg hover:bg-purple-600 disabled:opacity-50 flex items-center gap-1"
-                  >
-                    {isActionLoading ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <>
-                        <Check className="w-3 h-3" />
-                        Completar
-                      </>
-                    )}
-                  </button>
+                {mission.status === "RECHAZADA" && mission.reviewComment && (
+                  <p className="mb-3 rounded-lg bg-red-50 p-2 text-xs text-red-700">Comentario docente: {mission.reviewComment}</p>
+                )}
+                {(mission.status === "EN_PROGRESO" || mission.status === "RECHAZADA") && (
+                  <div className="flex w-full flex-col items-end gap-2">
+                    <textarea
+                      value={evidence[mission.id] || ""}
+                      onChange={(event) => setEvidence((previous) => ({ ...previous, [mission.id]: event.target.value }))}
+                      placeholder="Describe o enlaza tu evidencia"
+                      rows={2}
+                      className="w-full rounded-lg border border-gray-300 p-2 text-xs dark:border-gray-600 dark:bg-gray-700"
+                    />
+                    <button
+                      onClick={() => handleMissionAction(mission.id, "complete")}
+                      disabled={isActionLoading}
+                      className="px-3 py-1 bg-purple-500 text-white text-sm rounded-lg hover:bg-purple-600 disabled:opacity-50 flex items-center gap-1"
+                    >
+                      {isActionLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Check className="w-3 h-3" />Enviar a revisión</>}
+                    </button>
+                  </div>
                 )}
               </div>
             </div>
