@@ -1,25 +1,22 @@
 "use client"
 
-import { Bell, Search, Moon, Sun, Loader2 } from "lucide-react"
+import { Bell, Search, Moon, Sun, Loader2, LogOut } from "lucide-react"
 import { useTheme } from "next-themes"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useEffectEvent, useSyncExternalStore } from "react"
 import Link from "next/link"
-import { useSession } from "next-auth/react"
+import { signOut, useSession } from "next-auth/react"
 
 export function Header() {
   const { theme, setTheme } = useTheme()
-  const [mounted, setMounted] = useState(false)
+  const mounted = useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false
+  )
   const [unreadCount, setUnreadCount] = useState(0)
   const [userName, setUserName] = useState("")
   const [userInitials, setUserInitials] = useState("")
-  const { data: session, status } = useSession()
-
-  useEffect(() => {
-    setMounted(true)
-    if (status === "authenticated") {
-      fetchUserData()
-    }
-  }, [status])
+  const { status } = useSession()
 
   const fetchUserData = async () => {
     try {
@@ -39,6 +36,20 @@ export function Header() {
     } catch (error) {
       console.error("Error fetching user data:", error)
     }
+  }
+
+  const loadAuthenticatedUser = useEffectEvent(fetchUserData)
+
+  useEffect(() => {
+    if (status === "authenticated") {
+      // The event loads external session data and updates the header state.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      void loadAuthenticatedUser()
+    }
+  }, [status])
+
+  const handleSignOut = () => {
+    signOut({ callbackUrl: "/login" })
   }
 
   return (
@@ -99,6 +110,15 @@ export function Header() {
             </p>
             <p className="text-xs text-gray-500 dark:text-gray-400">Estudiante</p>
           </div>
+          <button
+            type="button"
+            onClick={handleSignOut}
+            aria-label="Cerrar sesión"
+            title="Cerrar sesión"
+            className="ml-1 p-2 rounded-lg text-gray-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20 dark:hover:text-red-400 transition-colors"
+          >
+            <LogOut className="w-5 h-5" />
+          </button>
         </div>
       </div>
     </header>
