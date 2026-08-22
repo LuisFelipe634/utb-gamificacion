@@ -16,13 +16,6 @@ declare module "next-auth" {
   }
 }
 
-declare module "next-auth/jwt" {
-  interface JWT {
-    id?: string
-    role?: string | null
-  }
-}
-
 import type { DefaultSession } from "next-auth"
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
@@ -84,7 +77,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     async session({ session, token }) {
       if (session.user) {
         session.user.id = (token.id as string) || (token.sub as string)
-        session.user.role = (token.role as string | undefined) ?? null
+        session.user.role = (token.role as string | undefined) ?? undefined
       }
 
       return session

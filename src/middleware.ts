@@ -36,7 +36,7 @@ export function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    // Proteger todas las rutas excepto archivos estáticos y API de auth
-    "/((?!_next/static|_next/image|favicon.ico|api/auth).*)",
+    // Proteger páginas; cada API valida la sesión y responde con JSON
+    "/((?!_next/static|_next/image|favicon.ico|api).*)",
   ],
 }
