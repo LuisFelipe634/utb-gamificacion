@@ -10,6 +10,10 @@ export async function GET() {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 })
     }
 
+    if (session.user.role !== "STUDENT") {
+      return NextResponse.json({ error: "Esta información es exclusiva para estudiantes" }, { status: 403 })
+    }
+
     const user = await prisma.user.findUnique({
       where: { id: session.user.id as string },
       include: {

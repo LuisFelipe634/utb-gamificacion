@@ -28,7 +28,10 @@ export default function LoginPage() {
       if (result?.error) {
         setError("Credenciales inválidas")
       } else {
-        router.push("/dashboard")
+        const sessionResponse = await fetch("/api/auth/session")
+        const session = await sessionResponse.json()
+        const destination = session?.user?.role === "TEACHER" ? "/docentes" : "/dashboard"
+        router.push(destination)
         router.refresh()
       }
     } catch {
@@ -124,15 +127,28 @@ export default function LoginPage() {
             <p className="text-center text-sm text-gray-500 dark:text-gray-400 mb-3">
               ¿No tienes cuenta? Accede con datos de demostración
             </p>
-            <button
-              onClick={() => {
-                setEmail("demo@utb.edu.co")
-                setPassword("demo123")
-              }}
-              className="w-full py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-            >
-              Usar cuenta demo
-            </button>
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setEmail("demo@utb.edu.co")
+                  setPassword("demo123")
+                }}
+                className="py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+              >
+                Estudiante demo
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setEmail("docente@utb.edu.co")
+                  setPassword("demo123")
+                }}
+                className="py-2 border border-blue-300 dark:border-blue-700 text-blue-700 dark:text-blue-300 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
+              >
+                Docente demo
+              </button>
+            </div>
           </div>
         </div>
 

@@ -22,7 +22,9 @@ export function middleware(request: NextRequest) {
   }
 
   // Verificar si hay token de sesión (cookie)
-  const sessionToken = request.cookies.get("authjs.session-token")
+  const sessionToken =
+    request.cookies.get("authjs.session-token") ||
+    request.cookies.get("__Secure-authjs.session-token")
 
   if (!sessionToken) {
     // Redirigir al login si no hay sesión

@@ -1,13 +1,12 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useEffectEvent } from "react"
 import {
   BookOpen,
   Trophy,
   Target,
   TrendingUp,
   Award,
-  Clock,
   AlertTriangle,
   Bell,
   ChevronRight,
@@ -76,10 +75,6 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
 
-  useEffect(() => {
-    fetchStudentData()
-  }, [])
-
   const fetchStudentData = async () => {
     try {
       const response = await fetch("/api/student")
@@ -95,6 +90,14 @@ export default function Dashboard() {
       setLoading(false)
     }
   }
+
+  const loadStudentData = useEffectEvent(fetchStudentData)
+
+  useEffect(() => {
+    // The event loads external student data and updates the dashboard state.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void loadStudentData()
+  }, [])
 
   if (loading) {
     return (
@@ -117,6 +120,25 @@ export default function Dashboard() {
           >
             Reintentar
           </button>
+        </div>
+      </div>
+    )
+  }
+
+  if (!data.profile || !data.profile.program) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <AlertTriangle className="w-12 h-12 text-yellow-500 mx-auto mb-4" />
+          <p className="text-gray-600 dark:text-gray-400">
+            Esta vista está disponible únicamente para estudiantes.
+          </p>
+          <Link
+            href="/docentes"
+            className="inline-block mt-4 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+          >
+            Ir al acompañamiento docente
+          </Link>
         </div>
       </div>
     )

@@ -6,6 +6,15 @@ import { useState, useEffect, useEffectEvent, useSyncExternalStore } from "react
 import Link from "next/link"
 import { signOut, useSession } from "next-auth/react"
 
+function getInitials(name?: string | null) {
+  if (!name) return "U"
+  const names = name.trim().split(/\s+/)
+  return (names.length >= 2
+    ? `${names[0][0]}${names[names.length - 1][0]}`
+    : names[0].substring(0, 2)
+  ).toUpperCase()
+}
+
 export function Header() {
   const { theme, setTheme } = useTheme()
   const mounted = useSyncExternalStore(
@@ -16,7 +25,12 @@ export function Header() {
   const [unreadCount, setUnreadCount] = useState(0)
   const [userName, setUserName] = useState("")
   const [userInitials, setUserInitials] = useState("")
-  const { status } = useSession()
+  const { data: session, status } = useSession()
+  const profileRole = session?.user?.role
+  const roleLabel = profileRole === "TEACHER" ? "Docente" :
+    profileRole === "COORDINATOR" ? "Coordinador" :
+      profileRole === "ADMIN" ? "Administrador" : "Estudiante"
+  const displayName = userName || session?.user?.name || "Usuario"
 
   const fetchUserData = async () => {
     try {
@@ -41,12 +55,12 @@ export function Header() {
   const loadAuthenticatedUser = useEffectEvent(fetchUserData)
 
   useEffect(() => {
-    if (status === "authenticated") {
+    if (status === "authenticated" && profileRole === "STUDENT") {
       // The event loads external session data and updates the header state.
       // eslint-disable-next-line react-hooks/set-state-in-effect
       void loadAuthenticatedUser()
     }
-  }, [status])
+  }, [status, profileRole])
 
   const handleSignOut = () => {
     signOut({ callbackUrl: "/login" })
@@ -100,15 +114,15 @@ export function Header() {
               {status === "loading" ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
               ) : (
-                userInitials || "U"
+                userInitials || getInitials(session?.user?.name)
               )}
             </span>
           </div>
           <div className="hidden md:block">
             <p className="text-sm font-medium text-gray-900 dark:text-white">
-              {status === "loading" ? "Cargando..." : userName || "Usuario"}
+              {status === "loading" ? "Cargando..." : displayName}
             </p>
-            <p className="text-xs text-gray-500 dark:text-gray-400">Estudiante</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400">{roleLabel}</p>
           </div>
           <button
             type="button"

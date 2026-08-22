@@ -195,6 +195,23 @@ async function main() {
 
   console.log('✅ Usuario demo creado:', demoUser.email)
 
+  const teacherUser = await prisma.user.create({
+    data: {
+      email: 'docente@utb.edu.co',
+      name: 'María González',
+      passwordHash,
+      role: 'TEACHER',
+      teacherProfile: {
+        create: {
+          department: 'Ingeniería de Sistemas',
+          title: 'Docente acompañante'
+        }
+      }
+    }
+  })
+
+  console.log('✅ Usuario docente creado:', teacherUser.email)
+
   console.log('🎉 Seed completado exitosamente!')
 }
 
