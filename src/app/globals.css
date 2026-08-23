@@ -12,6 +12,18 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  
+  /* UTB Theme Colors */
+  --color-blue-50: #f0f4ff;
+  --color-blue-100: #e0e9ff;
+  --color-blue-200: #c2d3ff;
+  --color-blue-300: #93b3ff;
+  --color-blue-400: #608dff;
+  --color-blue-500: #386aff;
+  --color-blue-600: #0A33A6; /* UTB Primary Blue */
+  --color-blue-700: #082884;
+  --color-blue-800: #061c60;
+  --color-blue-900: #041442;
 }
 
 body {

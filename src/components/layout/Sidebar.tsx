@@ -38,16 +38,16 @@ export function Sidebar() {
 
   return (
     <aside className="w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col">
-      {/* Logo */}
       <div className="p-6 border-b border-gray-200 dark:border-gray-700">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center">
-            <GraduationCap className="w-6 h-6 text-white" />
-          </div>
-          <div>
-            <h1 className="font-bold text-gray-900 dark:text-white">UTB</h1>
-            <p className="text-xs text-gray-500 dark:text-gray-400">Gamificación</p>
-          </div>
+        <div className="flex flex-col gap-1.5">
+          <img 
+            src="/utb-logotipo.png" 
+            alt="UTB Logo" 
+            className="w-24 h-auto object-contain dark:drop-shadow-[0_0_8px_rgba(255,255,255,0.4)]"
+          />
+          <span className="text-[11px] font-bold uppercase tracking-widest text-blue-600 dark:text-blue-400 pl-1">
+            Gamificado
+          </span>
         </div>
       </div>
 
