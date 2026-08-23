@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { auth } from "@/lib/auth"
-import { getCurrentSemester } from "@/lib/academic"
+import { getAverageGrade, getCurrentSemester } from "@/lib/academic"
 
 export async function GET() {
   try {
@@ -35,6 +35,7 @@ export async function GET() {
         .map((enrollment) => [enrollment.courseId, enrollment.course.credits])
     ).values()).reduce((total, credits) => total + credits, 0)
     const currentSemester = getCurrentSemester(profile.enrollments, profile.currentSemester)
+    const averageGrade = getAverageGrade(profile.academicHistory, profile.enrollments, profile.averageGrade)
 
     // Obtener puntos totales
     const points = await prisma.point.groupBy({
@@ -103,17 +104,17 @@ export async function GET() {
       { month: "May", credits: 25, grade: 4.1 },
       { month: "Jun", credits: 28, grade: 4.3 },
       { month: "Jul", credits: 30, grade: 4.2 },
-      { month: "Ago", credits: approvedCredits, grade: profile.averageGrade }
+      { month: "Ago", credits: approvedCredits, grade: averageGrade }
     ]
 
     // Calcular tendencia del promedio
-    const gradeTrend = profile.averageGrade - 4.0 // Comparar con semestre anterior
+    const gradeTrend = averageGrade - 4.0 // Comparar con semestre anterior
 
     return NextResponse.json({
       overall: {
         creditsApproved: approvedCredits,
         totalCredits: profile.program.totalCredits,
-        averageGrade: profile.averageGrade,
+        averageGrade,
         coursesCompleted: profile.enrollments.filter((e) => e.status === "APROBADO").length,
         totalCourses: profile.enrollments.length,
         currentSemester,

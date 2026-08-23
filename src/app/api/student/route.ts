@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { getCurrentSemester } from "@/lib/academic"
+import { getAverageGrade, getCurrentSemester } from "@/lib/academic"
 import { auth } from "@/lib/auth"
 
 export async function GET() {
@@ -88,6 +88,9 @@ export async function GET() {
         .map((enrollment) => [enrollment.courseId, enrollment.course.credits]) || []
     ).values()).reduce((total, credits) => total + credits, 0)
     const currentSemester = getCurrentSemester(user.studentProfile?.enrollments || [], user.studentProfile?.currentSemester || 1)
+    const averageGrade = user.studentProfile
+      ? getAverageGrade(user.studentProfile.academicHistory, user.studentProfile.enrollments, user.studentProfile.averageGrade)
+      : 0
 
     return NextResponse.json({
       user: {
@@ -96,7 +99,7 @@ export async function GET() {
         name: user.name,
         role: user.role
       },
-      profile: user.studentProfile ? { ...user.studentProfile, currentSemester, totalCredits: approvedCredits } : null,
+      profile: user.studentProfile ? { ...user.studentProfile, averageGrade, currentSemester, totalCredits: approvedCredits } : null,
       stats: {
         totalPoints,
         currentLevel: currentLevel?.name || "Novato",

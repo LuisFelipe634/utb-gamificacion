@@ -54,8 +54,8 @@ export default function LoginPage() {
       <button
         type="button"
         onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-        aria-label={theme === "dark" ? "Activar modo claro" : "Activar modo oscuro"}
-        title={theme === "dark" ? "Activar modo claro" : "Activar modo oscuro"}
+        aria-label={mounted ? (theme === "dark" ? "Activar modo claro" : "Activar modo oscuro") : "Cambiar tema"}
+        title={mounted ? (theme === "dark" ? "Activar modo claro" : "Activar modo oscuro") : "Cambiar tema"}
         className="absolute right-4 top-4 rounded-lg p-2 text-gray-500 hover:bg-white/70 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-gray-800/70 dark:hover:text-white"
       >
         {mounted && theme === "dark" ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}

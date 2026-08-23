@@ -228,7 +228,10 @@ async function main() {
       teacherProfile: {
         create: {
           department: 'Ingeniería de Sistemas',
-          title: 'Docente acompañante'
+          faculty: 'Facultad de Ingeniería',
+          profession: 'Ingeniera de Sistemas',
+          title: 'Docente acompañante',
+          isActive: true
         }
       }
     }

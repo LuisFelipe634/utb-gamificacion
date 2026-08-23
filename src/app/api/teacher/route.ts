@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
-import { getCurrentSemester } from "@/lib/academic"
+import { getAverageGrade, getCurrentSemester } from "@/lib/academic"
 
 export async function GET() {
   const session = await auth()
@@ -15,6 +15,11 @@ export async function GET() {
   }
 
   try {
+    const teacher = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      include: { teacherProfile: true }
+    })
+
     const students = await prisma.user.findMany({
       where: { role: "STUDENT", studentProfile: { isNot: null } },
       orderBy: { name: "asc" },
@@ -46,8 +51,9 @@ export async function GET() {
         .slice(0, 3)
 
       const currentSemester = getCurrentSemester(profile.enrollments, profile.currentSemester)
+      const averageGrade = getAverageGrade(profile.academicHistory, profile.enrollments, profile.averageGrade)
       const approvedCredits = Array.from(new Map(profile.enrollments.filter((enrollment) => enrollment.status === "APROBADO").map((enrollment) => [enrollment.courseId, enrollment.course.credits])).values()).reduce((total, credits) => total + credits, 0)
-      const academicRisk = profile.averageGrade < 3 ? "Requiere acompañamiento por promedio bajo" :
+      const academicRisk = averageGrade < 3 ? "Requiere acompañamiento por promedio bajo" :
         approvedCredits < currentSemester * 12 ? "Avance de créditos por debajo de lo esperado" : null
 
       return [{
@@ -57,7 +63,7 @@ export async function GET() {
         studentCode: profile.studentCode,
         program: profile.program.name,
         semester: currentSemester,
-        averageGrade: profile.averageGrade,
+        averageGrade,
         totalCredits: approvedCredits,
         totalProgramCredits: profile.program.totalCredits,
         completedCourses: profile.enrollments.filter((enrollment) => enrollment.status === "APROBADO").length,
@@ -71,6 +77,13 @@ export async function GET() {
     })
 
     return NextResponse.json({
+      teacher: teacher ? {
+        id: teacher.id,
+        name: teacher.name,
+        email: teacher.email,
+        role: teacher.role,
+        profile: teacher.teacherProfile
+      } : null,
       students: data,
       pendingMissions: data.flatMap((student) => student.pendingMissions.map((mission) => ({ ...mission, studentId: student.id, studentName: student.name, studentCode: student.studentCode })))
     })

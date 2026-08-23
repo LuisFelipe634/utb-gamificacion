@@ -27,7 +27,8 @@ const navigation = [
 ]
 
 const teacherNavigation = [
-  { name: "Acompañamiento docente", href: "/docentes", icon: Users }
+  { name: "Acompañamiento docente", href: "/docentes", icon: Users },
+  { name: "Mi perfil docente", href: "/perfil-docente", icon: UserRound }
 ]
 
 export function Sidebar() {

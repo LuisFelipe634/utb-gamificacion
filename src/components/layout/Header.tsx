@@ -84,8 +84,8 @@ export function Header() {
         {/* Theme Toggle */}
         <button
           onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-          aria-label={theme === "dark" ? "Activar modo claro" : "Activar modo oscuro"}
-          title={theme === "dark" ? "Activar modo claro" : "Activar modo oscuro"}
+          aria-label={mounted ? (theme === "dark" ? "Activar modo claro" : "Activar modo oscuro") : "Cambiar tema"}
+          title={mounted ? (theme === "dark" ? "Activar modo claro" : "Activar modo oscuro") : "Cambiar tema"}
           className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
         >
           {mounted && theme === "dark" ? (
@@ -110,7 +110,7 @@ export function Header() {
 
         {/* User Profile */}
         <div className="flex items-center gap-3 pl-4 border-l border-gray-200 dark:border-gray-700">
-          <Link href={profileRole === "TEACHER" ? "/docentes" : "/perfil"} className="flex items-center gap-3 rounded-lg p-1 hover:bg-gray-100 dark:hover:bg-gray-700">
+          <Link href={profileRole === "TEACHER" ? "/perfil-docente" : "/perfil"} className="flex items-center gap-3 rounded-lg p-1 hover:bg-gray-100 dark:hover:bg-gray-700">
             <div className="w-9 h-9 bg-gradient-to-br from-green-400 to-blue-500 rounded-full flex items-center justify-center">
               <span className="text-white font-semibold text-sm">
                 {status === "loading" ? (

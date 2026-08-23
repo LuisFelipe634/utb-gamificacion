@@ -68,10 +68,13 @@ model StudentProfile {
 }
 
 model TeacherProfile {
-  id       String @id @default(cuid())
-  userId   String @unique
+  id         String  @id @default(cuid())
+  userId     String  @unique
   department String?
-  title    String?
+  faculty    String?
+  profession String?
+  title      String?
+  isActive   Boolean @default(true)
 
   user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
