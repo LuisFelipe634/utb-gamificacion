@@ -40,8 +40,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           where: { email },
           include: {
             studentProfile: true,
-            teacherProfile: true,
-            coordinatorProfile: true
+            teacherProfile: true
           }
         })
 

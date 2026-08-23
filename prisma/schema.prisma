@@ -27,7 +27,6 @@ model User {
   // Relaciones
   studentProfile StudentProfile?
   teacherProfile TeacherProfile?
-  coordinatorProfile CoordinatorProfile?
   points         Point[]
   missions       StudentMission[]
   badges         StudentBadge[]
@@ -40,7 +39,6 @@ model User {
 enum UserRole {
   STUDENT
   TEACHER
-  COORDINATOR
   ADMIN
 }
 
@@ -80,18 +78,6 @@ model TeacherProfile {
   @@map("teacher_profiles")
 }
 
-model CoordinatorProfile {
-  id          String  @id @default(cuid())
-  userId      String  @unique
-  programId   String
-  position    String?
-
-  user        User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  program     Program @relation(fields: [programId], references: [id])
-
-  @@map("coordinator_profiles")
-}
-
 // ============================================
 // MODELOS ACADÉMICOS (MALLA CURRICULAR)
 // ============================================
@@ -109,7 +95,6 @@ model Program {
   // Relaciones
   courses     Course[]
   students    StudentProfile[]
-  coordinators CoordinatorProfile[]
   semesters   Semester[]
 
   @@map("programs")

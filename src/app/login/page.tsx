@@ -30,8 +30,7 @@ export default function LoginPage() {
       } else {
         const sessionResponse = await fetch("/api/auth/session")
         const session = await sessionResponse.json()
-        const destination = session?.user?.role === "TEACHER" ? "/docentes" :
-          session?.user?.role === "COORDINATOR" ? "/coordinacion" : "/dashboard"
+        const destination = session?.user?.role === "TEACHER" ? "/docentes" : "/dashboard"
         router.push(destination)
         router.refresh()
       }
@@ -128,7 +127,7 @@ export default function LoginPage() {
             <p className="text-center text-sm text-gray-500 dark:text-gray-400 mb-3">
               ¿No tienes cuenta? Accede con datos de demostración
             </p>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <button
                 type="button"
                 onClick={() => {
@@ -148,16 +147,6 @@ export default function LoginPage() {
                 className="py-2 border border-blue-300 dark:border-blue-700 text-blue-700 dark:text-blue-300 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
               >
                 Docente demo
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setEmail("coordinador@utb.edu.co")
-                  setPassword("demo123")
-                }}
-                className="py-2 border border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-300 rounded-lg hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-colors"
-              >
-                Coordinador demo
               </button>
             </div>
           </div>

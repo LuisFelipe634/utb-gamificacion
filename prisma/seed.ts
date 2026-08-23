@@ -24,7 +24,6 @@ async function main() {
   await prisma.academicRecord.deleteMany()
   await prisma.studentProfile.deleteMany()
   await prisma.teacherProfile.deleteMany()
-  await prisma.coordinatorProfile.deleteMany()
   await prisma.user.deleteMany()
   await prisma.prerequisite.deleteMany()
   await prisma.mission.deleteMany()
@@ -236,23 +235,6 @@ async function main() {
   })
 
   console.log('✅ Usuario docente creado:', teacherUser.email)
-
-  const coordinatorUser = await prisma.user.create({
-    data: {
-      email: 'coordinador@utb.edu.co',
-      name: 'Carlos Rodríguez',
-      passwordHash,
-      role: 'COORDINATOR',
-      coordinatorProfile: {
-        create: {
-          programId: program.id,
-          position: 'Coordinador de programa'
-        }
-      }
-    }
-  })
-
-  console.log('✅ Usuario coordinador creado:', coordinatorUser.email)
 
   console.log('🎉 Seed completado exitosamente!')
 }

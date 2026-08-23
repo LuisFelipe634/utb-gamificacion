@@ -83,6 +83,12 @@ export async function GET() {
       (m) => m.status === "COMPLETADA" || m.status === "VERIFICADA"
     )
 
+    const approvedCredits = Array.from(new Map(
+      user.studentProfile?.enrollments
+        .filter((enrollment) => enrollment.status === "APROBADO")
+        .map((enrollment) => [enrollment.courseId, enrollment.course.credits]) || []
+    ).values()).reduce((total, credits) => total + credits, 0)
+
     return NextResponse.json({
       user: {
         id: user.id,
@@ -90,7 +96,7 @@ export async function GET() {
         name: user.name,
         role: user.role
       },
-      profile: user.studentProfile,
+      profile: user.studentProfile ? { ...user.studentProfile, totalCredits: approvedCredits } : null,
       stats: {
         totalPoints,
         currentLevel: currentLevel?.name || "Novato",

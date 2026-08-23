@@ -30,16 +30,10 @@ const teacherNavigation = [
   { name: "Acompañamiento docente", href: "/docentes", icon: Users }
 ]
 
-const coordinatorNavigation = [
-  { name: "Panel del programa", href: "/coordinacion", icon: BarChart3 },
-  { name: "Malla académica", href: "/coordinacion#malla", icon: BookOpen }
-]
-
 export function Sidebar() {
   const pathname = usePathname()
   const { data: session } = useSession()
   const isTeacher = session?.user?.role === "TEACHER"
-  const isCoordinator = session?.user?.role === "COORDINATOR"
 
   return (
     <aside className="w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col">
@@ -58,7 +52,7 @@ export function Sidebar() {
 
       {/* Navigation */}
       <nav className="flex-1 p-4 space-y-1">
-        {(isTeacher ? teacherNavigation : isCoordinator ? coordinatorNavigation : navigation).map((item) => {
+        {(isTeacher ? teacherNavigation : navigation).map((item) => {
           const isActive = pathname === item.href
           return (
             <Link

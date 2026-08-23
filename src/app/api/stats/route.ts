@@ -30,6 +30,12 @@ export async function GET() {
       return NextResponse.json({ error: "Perfil no encontrado" }, { status: 404 })
     }
 
+    const approvedCredits = Array.from(new Map(
+      profile.enrollments
+        .filter((enrollment) => enrollment.status === "APROBADO")
+        .map((enrollment) => [enrollment.courseId, enrollment.course.credits])
+    ).values()).reduce((total, credits) => total + credits, 0)
+
     // Obtener puntos totales
     const points = await prisma.point.groupBy({
       by: ["source"],
@@ -97,7 +103,7 @@ export async function GET() {
       { month: "May", credits: 25, grade: 4.1 },
       { month: "Jun", credits: 28, grade: 4.3 },
       { month: "Jul", credits: 30, grade: 4.2 },
-      { month: "Ago", credits: profile.totalCredits, grade: profile.averageGrade }
+      { month: "Ago", credits: approvedCredits, grade: profile.averageGrade }
     ]
 
     // Calcular tendencia del promedio
@@ -105,7 +111,7 @@ export async function GET() {
 
     return NextResponse.json({
       overall: {
-        creditsApproved: profile.totalCredits,
+        creditsApproved: approvedCredits,
         totalCredits: profile.program.totalCredits,
         averageGrade: profile.averageGrade,
         coursesCompleted: profile.enrollments.filter((e) => e.status === "APROBADO").length,
