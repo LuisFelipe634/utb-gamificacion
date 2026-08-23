@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { getAverageGrade, getCurrentSemester } from "@/lib/academic"
 import { auth } from "@/lib/auth"
+import { syncDynamicBadges } from "@/lib/badges"
 
 export async function GET() {
   try {
@@ -15,8 +16,11 @@ export async function GET() {
       return NextResponse.json({ error: "Esta información es exclusiva para estudiantes" }, { status: 403 })
     }
 
+    const userId = session.user.id as string;
+    await syncDynamicBadges(userId);
+
     const user = await prisma.user.findUnique({
-      where: { id: session.user.id as string },
+      where: { id: userId },
       include: {
         studentProfile: {
           include: {

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { auth } from "@/lib/auth"
+import { syncDynamicBadges } from "@/lib/badges"
 
 export async function GET() {
   try {
@@ -11,6 +12,9 @@ export async function GET() {
     }
 
     const userId = session.user.id as string
+
+    // Sincronizar insignias dinámicas
+    await syncDynamicBadges(userId)
 
     // Obtener todas las insignias disponibles
     const allBadges = await prisma.badge.findMany({

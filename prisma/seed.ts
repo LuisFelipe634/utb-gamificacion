@@ -218,6 +218,29 @@ async function main() {
 
   console.log('✅ Segundo estudiante creado:', secondStudent.email)
 
+  // nuevo usuario juanito alcachofa
+  const juanitoStudent = await prisma.user.create({
+    data: {
+      email: 'juanito@utb.edu.co',
+      name: 'Juanito Alcachofa',
+      passwordHash: secondPasswordHash,
+      role: 'STUDENT',
+      studentProfile: {
+        create: {
+          studentCode: '2021123456',
+          programId: program.id,
+          currentSemester: 4,
+          admissionYear: 2021,
+          totalCredits: 60,
+          averageGrade: 4.7,
+          level: 4
+        }
+      }
+    }
+  })
+
+  console.log('✅ Estudiante Juanito creado:', juanitoStudent.email)
+
   // Docentes
   const teacherUser = await prisma.user.create({
     data: {
