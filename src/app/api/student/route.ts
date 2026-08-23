@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { getCurrentSemester } from "@/lib/academic"
 import { auth } from "@/lib/auth"
 
 export async function GET() {
@@ -21,9 +22,7 @@ export async function GET() {
           include: {
             program: true,
             enrollments: {
-              include: {
-                course: true
-              }
+              include: { course: { include: { semester: true } } }
             },
             academicHistory: true,
             recommendations: true
@@ -88,6 +87,7 @@ export async function GET() {
         .filter((enrollment) => enrollment.status === "APROBADO")
         .map((enrollment) => [enrollment.courseId, enrollment.course.credits]) || []
     ).values()).reduce((total, credits) => total + credits, 0)
+    const currentSemester = getCurrentSemester(user.studentProfile?.enrollments || [], user.studentProfile?.currentSemester || 1)
 
     return NextResponse.json({
       user: {
@@ -96,7 +96,7 @@ export async function GET() {
         name: user.name,
         role: user.role
       },
-      profile: user.studentProfile ? { ...user.studentProfile, totalCredits: approvedCredits } : null,
+      profile: user.studentProfile ? { ...user.studentProfile, currentSemester, totalCredits: approvedCredits } : null,
       stats: {
         totalPoints,
         currentLevel: currentLevel?.name || "Novato",

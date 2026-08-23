@@ -119,6 +119,7 @@ export default function MallaCurricular() {
   const [curriculum, setCurriculum] = useState<CurriculumSemester[] | null>(null)
   const [selectedCredits, setSelectedCredits] = useState(0)
   const [period, setPeriod] = useState("")
+  const [currentSemester, setCurrentSemester] = useState<number | null>(null)
   const [selectionLoading, setSelectionLoading] = useState<string | null>(null)
   const [selectionError, setSelectionError] = useState("")
 
@@ -129,6 +130,7 @@ export default function MallaCurricular() {
       setCurriculum(data.semesters as CurriculumSemester[])
       setSelectedCredits(data.selectedCredits || 0)
       setPeriod(data.period || "")
+      setCurrentSemester(data.currentSemester || null)
     }).catch(() => setCurriculum(mockCurriculum))
   }, [])
 
@@ -181,7 +183,7 @@ export default function MallaCurricular() {
           Malla Curricular
         </h1>
         <p className="text-gray-600 dark:text-gray-400">
-          Ingeniería de Sistemas - Plan 2019{period && ` · Periodo ${period}`}
+          Ingeniería de Sistemas - Plan 2019{currentSemester && ` · Semestre actual ${currentSemester}`}{period && ` · Periodo ${period}`}
         </p>
       </div>
 

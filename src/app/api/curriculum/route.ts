@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { getCurrentSemester } from "@/lib/academic"
 
 function currentPeriod() {
   const now = new Date()
@@ -23,13 +24,14 @@ export async function GET() {
       where: { userId: session.user.id },
       include: {
         program: { include: { semesters: { include: { courses: { include: { prerequisites: { include: { prerequisite: true } } } } }, orderBy: { number: "asc" } } } },
-        enrollments: { include: { course: true } }
+        enrollments: { include: { course: { include: { semester: true } } } }
       }
     })
 
     if (!profile) return NextResponse.json({ error: "Perfil no encontrado" }, { status: 404 })
 
     const period = currentPeriod()
+    const currentSemester = getCurrentSemester(profile.enrollments, profile.currentSemester)
     const enrollmentByCourse = new Map(profile.enrollments.map((enrollment) => [enrollment.courseId, enrollment]))
     const approvedIds = new Set(profile.enrollments.filter((enrollment) => enrollment.status === "APROBADO").map((enrollment) => enrollment.courseId))
     const selectedIds = new Set(profile.enrollments.filter((enrollment) => enrollment.status === "CURSANDO" && enrollment.semesterCode === period).map((enrollment) => enrollment.courseId))
@@ -47,7 +49,7 @@ export async function GET() {
       })
     }))
 
-    return NextResponse.json({ program: { name: profile.program.name, code: profile.program.code, version: profile.program.version }, period, selectedCredits, semesters })
+    return NextResponse.json({ program: { name: profile.program.name, code: profile.program.code, version: profile.program.version }, period, currentSemester, selectedCredits, semesters })
   } catch (error) {
     console.error("Error fetching curriculum:", error)
     return NextResponse.json({ error: "Error interno del servidor" }, { status: 500 })

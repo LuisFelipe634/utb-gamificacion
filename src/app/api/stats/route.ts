@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { auth } from "@/lib/auth"
+import { getCurrentSemester } from "@/lib/academic"
 
 export async function GET() {
   try {
@@ -18,9 +19,7 @@ export async function GET() {
       include: {
         program: true,
         enrollments: {
-          include: {
-            course: true
-          }
+          include: { course: { include: { semester: true } } }
         },
         academicHistory: true
       }
@@ -35,6 +34,7 @@ export async function GET() {
         .filter((enrollment) => enrollment.status === "APROBADO")
         .map((enrollment) => [enrollment.courseId, enrollment.course.credits])
     ).values()).reduce((total, credits) => total + credits, 0)
+    const currentSemester = getCurrentSemester(profile.enrollments, profile.currentSemester)
 
     // Obtener puntos totales
     const points = await prisma.point.groupBy({
@@ -116,7 +116,7 @@ export async function GET() {
         averageGrade: profile.averageGrade,
         coursesCompleted: profile.enrollments.filter((e) => e.status === "APROBADO").length,
         totalCourses: profile.enrollments.length,
-        currentSemester: profile.currentSemester,
+        currentSemester,
         totalSemesters: profile.program.totalSemesters,
         gradeTrend
       },

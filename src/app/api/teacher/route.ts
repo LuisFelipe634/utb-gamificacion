@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { getCurrentSemester } from "@/lib/academic"
 
 export async function GET() {
   const session = await auth()
@@ -21,7 +22,7 @@ export async function GET() {
         studentProfile: {
           include: {
             program: { include: { courses: { include: { semester: true, prerequisites: { include: { prerequisite: true } } } } } },
-            enrollments: { include: { course: true } },
+            enrollments: { include: { course: { include: { semester: true } } } },
             academicHistory: true,
             recommendations: { orderBy: { priority: "asc" }, take: 3 }
           }
@@ -44,8 +45,10 @@ export async function GET() {
         .sort((first, second) => first.semester.number - second.semester.number)
         .slice(0, 3)
 
-      const risk = profile.averageGrade < 3 ? "Requiere acompañamiento por promedio bajo" :
-        profile.totalCredits < profile.currentSemester * 12 ? "Avance de créditos por debajo de lo esperado" : null
+      const currentSemester = getCurrentSemester(profile.enrollments, profile.currentSemester)
+      const approvedCredits = Array.from(new Map(profile.enrollments.filter((enrollment) => enrollment.status === "APROBADO").map((enrollment) => [enrollment.courseId, enrollment.course.credits])).values()).reduce((total, credits) => total + credits, 0)
+      const academicRisk = profile.averageGrade < 3 ? "Requiere acompañamiento por promedio bajo" :
+        approvedCredits < currentSemester * 12 ? "Avance de créditos por debajo de lo esperado" : null
 
       return [{
         id: student.id,
@@ -53,16 +56,16 @@ export async function GET() {
         email: student.email,
         studentCode: profile.studentCode,
         program: profile.program.name,
-        semester: profile.currentSemester,
+        semester: currentSemester,
         averageGrade: profile.averageGrade,
-        totalCredits: Array.from(new Map(profile.enrollments.filter((enrollment) => enrollment.status === "APROBADO").map((enrollment) => [enrollment.courseId, enrollment.course.credits])).values()).reduce((total, credits) => total + credits, 0),
+        totalCredits: approvedCredits,
         totalProgramCredits: profile.program.totalCredits,
         completedCourses: profile.enrollments.filter((enrollment) => enrollment.status === "APROBADO").length,
         currentCourses: profile.enrollments.filter((enrollment) => enrollment.status === "CURSANDO").map((enrollment) => ({ code: enrollment.course.code, name: enrollment.course.name, credits: enrollment.course.credits, period: enrollment.semesterCode })),
         badges: student.badges.map(({ badge, earnedAt, evidence }) => ({ name: badge.name, icon: badge.iconUrl, category: badge.category, earnedAt, evidence })),
         recommendations: profile.recommendations.map(({ title, description, priority }) => ({ title, description, priority })),
         suggestedCourses: suggestedCourses.map((course) => ({ code: course.code, name: course.name, credits: course.credits, semester: course.semester.number })),
-        risk,
+        risk: academicRisk,
         pendingMissions: student.missions.map(({ id, mission, evidence, completedAt, status }) => ({ id, title: mission.title, description: mission.description, points: mission.pointsReward, evidence, completedAt, status }))
       }]
     })
