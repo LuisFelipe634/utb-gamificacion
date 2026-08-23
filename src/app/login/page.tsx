@@ -3,10 +3,18 @@
 import { useState } from "react"
 import { signIn } from "next-auth/react"
 import { useRouter } from "next/navigation"
-import { GraduationCap, Mail, Lock, Eye, EyeOff } from "lucide-react"
+import { GraduationCap, Mail, Lock, Eye, EyeOff, Moon, Sun } from "lucide-react"
+import { useTheme } from "next-themes"
+import { useSyncExternalStore } from "react"
 
 export default function LoginPage() {
   const router = useRouter()
+  const { theme, setTheme } = useTheme()
+  const mounted = useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false
+  )
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
@@ -42,7 +50,16 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 flex items-center justify-center p-4">
+    <div className="relative min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 flex items-center justify-center p-4">
+      <button
+        type="button"
+        onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+        aria-label={theme === "dark" ? "Activar modo claro" : "Activar modo oscuro"}
+        title={theme === "dark" ? "Activar modo claro" : "Activar modo oscuro"}
+        className="absolute right-4 top-4 rounded-lg p-2 text-gray-500 hover:bg-white/70 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-gray-800/70 dark:hover:text-white"
+      >
+        {mounted && theme === "dark" ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+      </button>
       <div className="w-full max-w-md">
         {/* Logo */}
         <div className="text-center mb-8">

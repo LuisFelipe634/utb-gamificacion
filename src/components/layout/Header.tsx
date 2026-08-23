@@ -84,6 +84,8 @@ export function Header() {
         {/* Theme Toggle */}
         <button
           onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+          aria-label={theme === "dark" ? "Activar modo claro" : "Activar modo oscuro"}
+          title={theme === "dark" ? "Activar modo claro" : "Activar modo oscuro"}
           className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
         >
           {mounted && theme === "dark" ? (
