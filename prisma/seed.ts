@@ -194,6 +194,49 @@ async function main() {
 
   console.log('✅ Usuario demo creado:', demoUser.email)
 
+  // Agregar inscripciones del usuario demo (semestre 1 aprobado, semestre 2 parcial)
+  const sem1Courses = await prisma.course.findMany({
+    where: { programId: program.id, semester: { number: 1 } },
+  })
+  const sem2Courses = await prisma.course.findMany({
+    where: { programId: program.id, semester: { number: 2 } },
+  })
+
+  const demoProfile = await prisma.studentProfile.findUnique({
+    where: { userId: demoUser.id },
+  })
+
+  if (demoProfile) {
+    // Semestre 1: todas aprobadas
+    for (const course of sem1Courses) {
+      await prisma.enrollment.create({
+        data: {
+          studentId: demoProfile.id,
+          courseId: course.id,
+          semesterCode: '2019-1',
+          status: 'APROBADO',
+          grade: 4.0 + Math.random() * 0.8,
+        },
+      })
+    }
+
+    // Semestre 2: MAT102 y PRO102 aprobadas, FIS102 reprobada, resto aprobadas
+    for (const course of sem2Courses) {
+      const isFailed = course.code === 'FIS102'
+      await prisma.enrollment.create({
+        data: {
+          studentId: demoProfile.id,
+          courseId: course.id,
+          semesterCode: '2019-2',
+          status: isFailed ? 'REPROBADO' : 'APROBADO',
+          grade: isFailed ? 2.5 : 3.8 + Math.random() * 0.7,
+        },
+      })
+    }
+
+    console.log('✅ Inscripciones del usuario demo creadas')
+  }
+
   // nuevo usuario con perfil de estudiante
   const secondPasswordHash = await bcrypt.hash('demo1234', 10)
   const secondStudent = await prisma.user.create({

@@ -10,7 +10,9 @@ import {
   AlertTriangle,
   Bell,
   ChevronRight,
-  Loader2
+  Loader2,
+  Lightbulb,
+  X
 } from "lucide-react"
 import Link from "next/link"
 
@@ -70,10 +72,20 @@ interface StudentData {
   unreadCount: number
 }
 
+interface RecommendationData {
+  id: string
+  type: string
+  title: string
+  description: string
+  priority: number
+  isRead: boolean
+}
+
 export default function Dashboard() {
   const [data, setData] = useState<StudentData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
+  const [recommendations, setRecommendations] = useState<RecommendationData[]>([])
 
   const fetchStudentData = async () => {
     try {
@@ -83,11 +95,35 @@ export default function Dashboard() {
       }
       const result = await response.json()
       setData(result)
+
+      // Fetch recommendations in parallel
+      try {
+        const recResponse = await fetch("/api/recommendations")
+        if (recResponse.ok) {
+          const recs = await recResponse.json()
+          setRecommendations(recs)
+        }
+      } catch {
+        // Silently fail — recommendations are non-critical
+      }
     } catch (err) {
       setError("Error al cargar los datos del estudiante")
       console.error(err)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const dismissRecommendation = async (id: string) => {
+    setRecommendations((prev) => prev.filter((r) => r.id !== id))
+    try {
+      await fetch("/api/recommendations", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ recommendationId: id }),
+      })
+    } catch {
+      // Silently fail
     }
   }
 
@@ -167,6 +203,52 @@ export default function Dashboard() {
           Aquí tienes tu resumen de progreso académico
         </p>
       </div>
+
+      {/* Recommendations Banner */}
+      {recommendations.length > 0 && (
+        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-5">
+          <div className="flex items-center gap-2 mb-3">
+            <Lightbulb className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+            <h2 className="font-semibold text-gray-900 dark:text-white">Recomendaciones para ti</h2>
+          </div>
+          <div className="space-y-3">
+            {recommendations.map((rec) => (
+              <div
+                key={rec.id}
+                className={`flex items-start gap-3 p-3 rounded-lg border transition-all ${
+                  rec.priority === 1
+                    ? "bg-orange-50 dark:bg-orange-900/15 border-orange-200 dark:border-orange-800"
+                    : rec.priority === 2
+                    ? "bg-white dark:bg-gray-800/60 border-gray-200 dark:border-gray-700"
+                    : "bg-green-50 dark:bg-green-900/15 border-green-200 dark:border-green-800"
+                }`}
+              >
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium text-sm text-gray-900 dark:text-white">
+                    {rec.title}
+                  </p>
+                  <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                    {rec.description}
+                  </p>
+                </div>
+                <button
+                  onClick={() => dismissRecommendation(rec.id)}
+                  className="flex-shrink-0 p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                  title="Descartar"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            ))}
+          </div>
+          <Link
+            href="/malla"
+            className="inline-flex items-center gap-1 mt-3 text-sm text-blue-600 dark:text-blue-400 hover:underline font-medium"
+          >
+            Ver malla curricular <ChevronRight className="w-4 h-4" />
+          </Link>
+        </div>
+      )}
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
