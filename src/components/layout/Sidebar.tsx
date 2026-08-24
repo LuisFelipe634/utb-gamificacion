@@ -30,13 +30,15 @@ const teacherNavigation = [
   { name: "Mi perfil docente", href: "/perfil-docente", icon: UserRound }
 ]
 
-export function Sidebar() {
+export function Sidebar({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
   const pathname = usePathname()
   const { data: session } = useSession()
   const isTeacher = session?.user?.role === "TEACHER"
 
   return (
-    <aside className="w-56 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col">
+    <>
+      {isOpen && <button type="button" aria-label="Cerrar menú de navegación" onClick={onClose} className="fixed inset-0 z-30 bg-black/30 lg:hidden" />}
+      <aside className={`fixed inset-y-0 left-0 z-40 w-56 flex-col border-r border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800 lg:static lg:z-auto ${isOpen ? "flex" : "hidden"}`}>
       <div className="p-4 border-b border-gray-200 dark:border-gray-700">
         <div className="flex flex-col items-center gap-1.5">
           <img 
@@ -58,6 +60,7 @@ export function Sidebar() {
             <Link
               key={item.name}
               href={item.href}
+              onClick={onClose}
               className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${
                 isActive
                   ? "bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400"
@@ -71,6 +74,7 @@ export function Sidebar() {
         })}
       </nav>
 
-    </aside>
+      </aside>
+    </>
   )
 }

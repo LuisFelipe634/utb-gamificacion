@@ -1,6 +1,6 @@
 "use client"
 
-import { Bell, Search, Moon, Sun, Loader2, LogOut, BookOpen, Trophy, Target, BarChart3, Users, UserRound, LayoutDashboard, Lightbulb } from "lucide-react"
+import { Bell, Search, Moon, Sun, Loader2, LogOut, BookOpen, Trophy, Target, BarChart3, Users, UserRound, LayoutDashboard, Lightbulb, Menu } from "lucide-react"
 import { useTheme } from "next-themes"
 import { useRef, useState, useEffect, useEffectEvent, useSyncExternalStore } from "react"
 import Link from "next/link"
@@ -45,7 +45,7 @@ function getInitials(name?: string | null) {
   ).toUpperCase()
 }
 
-export function Header() {
+export function Header({ onToggleSidebar }: { onToggleSidebar: () => void }) {
   const router = useRouter()
   const { theme, setTheme } = useTheme()
   const mounted = useSyncExternalStore(
@@ -145,7 +145,16 @@ export function Header() {
   }
 
   return (
-    <header className="h-16 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between px-6">
+    <header className="h-16 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between gap-4 px-4 sm:px-6">
+      <button
+        type="button"
+        onClick={onToggleSidebar}
+        aria-label="Mostrar u ocultar menú de navegación"
+        title="Mostrar u ocultar menú de navegación"
+        className="shrink-0 rounded-lg p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-white"
+      >
+        <Menu className="h-5 w-5" />
+      </button>
       {/* Search */}
       <div className="relative flex-1 max-w-md">
         <div className="relative">
