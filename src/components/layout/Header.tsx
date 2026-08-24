@@ -1,10 +1,40 @@
 "use client"
 
-import { Bell, Search, Moon, Sun, Loader2, LogOut } from "lucide-react"
+import { Bell, Search, Moon, Sun, Loader2, LogOut, BookOpen, Trophy, Target, BarChart3, Users, UserRound, LayoutDashboard, Lightbulb } from "lucide-react"
 import { useTheme } from "next-themes"
-import { useState, useEffect, useEffectEvent, useSyncExternalStore } from "react"
+import { useRef, useState, useEffect, useEffectEvent, useSyncExternalStore } from "react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { signOut, useSession } from "next-auth/react"
+
+type SearchResult = {
+  id: string
+  type: string
+  label: string
+  description: string
+  href: string
+  keywords: string
+  icon: React.ComponentType<{ className?: string }>
+  roles: string[]
+}
+
+const searchOptions: SearchResult[] = [
+  { id: "dashboard", type: "page", label: "Dashboard", description: "Resumen de tu avance", href: "/dashboard", keywords: "inicio resumen avance", icon: LayoutDashboard, roles: ["STUDENT"] },
+  { id: "curriculum", type: "page", label: "Malla Curricular", description: "Consulta y selecciona materias", href: "/malla", keywords: "malla curricular cursos materias semestre", icon: BookOpen, roles: ["STUDENT"] },
+  { id: "missions", type: "page", label: "Misiones", description: "Retos y puntos", href: "/misiones", keywords: "misiones retos puntos", icon: Target, roles: ["STUDENT"] },
+  { id: "badges", type: "page", label: "Logros", description: "Insignias y progreso", href: "/logros", keywords: "logros insignias premios", icon: Trophy, roles: ["STUDENT"] },
+  { id: "notifications", type: "page", label: "Notificaciones", description: "Revisa tus avisos", href: "/notificaciones", keywords: "notificaciones avisos alertas", icon: Bell, roles: ["STUDENT", "TEACHER"] },
+  { id: "stats", type: "page", label: "Estadísticas", description: "Métricas de tu progreso", href: "/estadisticas", keywords: "estadisticas métricas progreso", icon: BarChart3, roles: ["STUDENT"] },
+  { id: "profile", type: "page", label: "Mi perfil", description: "Información académica", href: "/perfil", keywords: "perfil estudiante datos", icon: UserRound, roles: ["STUDENT"] },
+  { id: "students", type: "page", label: "Acompañamiento docente", description: "Seguimiento de estudiantes", href: "/docentes", keywords: "docentes estudiantes seguimiento acompañamiento", icon: Users, roles: ["TEACHER"] },
+  { id: "teacher-profile", type: "page", label: "Mi perfil docente", description: "Información profesional", href: "/perfil-docente", keywords: "perfil docente profesor datos", icon: UserRound, roles: ["TEACHER"] }
+]
+
+const resultIcons = { course: BookOpen, mission: Target, badge: Trophy, notification: Bell, recommendation: Lightbulb, student: Users }
+
+function normalizeSearchText(value: string) {
+  return value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase()
+}
 
 function getInitials(name?: string | null) {
   if (!name) return "U"
@@ -16,6 +46,7 @@ function getInitials(name?: string | null) {
 }
 
 export function Header() {
+  const router = useRouter()
   const { theme, setTheme } = useTheme()
   const mounted = useSyncExternalStore(
     () => () => {},
@@ -25,11 +56,21 @@ export function Header() {
   const [unreadCount, setUnreadCount] = useState(0)
   const [userName, setUserName] = useState("")
   const [userInitials, setUserInitials] = useState("")
+  const [searchTerm, setSearchTerm] = useState("")
+  const [searchOpen, setSearchOpen] = useState(false)
+  const [dynamicSearchResults, setDynamicSearchResults] = useState<SearchResult[]>([])
+  const searchRequestRef = useRef(0)
   const { data: session, status } = useSession()
   const profileRole = session?.user?.role
   const roleLabel = profileRole === "TEACHER" ? "Docente" :
     profileRole === "ADMIN" ? "Administrador" : "Estudiante"
   const displayName = userName || session?.user?.name || "Usuario"
+  const availableSearchOptions = searchOptions.filter((option) => option.roles.includes(profileRole || "STUDENT"))
+  const normalizedSearchTerm = normalizeSearchText(searchTerm.trim())
+  const navigationResults = normalizedSearchTerm
+    ? availableSearchOptions.filter((option) => normalizeSearchText(`${option.label} ${option.description} ${option.keywords}`).includes(normalizedSearchTerm))
+    : []
+  const searchResults = [...dynamicSearchResults, ...navigationResults].filter((result, index, results) => results.findIndex((item) => `${item.type}-${item.id}` === `${result.type}-${result.id}`) === index).slice(0, 8)
 
   const fetchUserData = async () => {
     try {
@@ -65,18 +106,93 @@ export function Header() {
     signOut({ callbackUrl: "/login" })
   }
 
+  const fetchSearchResults = async (term: string) => {
+    const query = term.trim()
+    const requestId = ++searchRequestRef.current
+    setDynamicSearchResults([])
+    if (query.length < 2) {
+      return
+    }
+
+    try {
+      const response = await fetch(`/api/search?q=${encodeURIComponent(query)}`)
+      if (!response.ok) return
+      const data = await response.json() as { results: { id: string; type: string; title: string; description: string; href: string }[] }
+      if (requestId !== searchRequestRef.current) return
+      setDynamicSearchResults(data.results.map((result) => ({
+        ...result,
+        label: result.title,
+        keywords: "",
+        icon: resultIcons[result.type as keyof typeof resultIcons] || Search,
+        roles: ["STUDENT", "TEACHER"]
+      })))
+    } catch {
+      if (requestId === searchRequestRef.current) setDynamicSearchResults([])
+    }
+  }
+
+  const handleSearchKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === "Escape") {
+      setSearchOpen(false)
+      return
+    }
+
+    if (event.key === "Enter" && searchResults[0]) {
+      router.push(searchResults[0].href)
+      setSearchTerm("")
+      setSearchOpen(false)
+    }
+  }
+
   return (
     <header className="h-16 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between px-6">
       {/* Search */}
-      <div className="flex-1 max-w-md">
+      <div className="relative flex-1 max-w-md">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
           <input
             type="text"
             placeholder="Buscar cursos, misiones, logros..."
+            value={searchTerm}
+            onChange={(event) => {
+              setSearchTerm(event.target.value)
+              setSearchOpen(true)
+              void fetchSearchResults(event.target.value)
+            }}
+            onFocus={() => setSearchOpen(true)}
+            onKeyDown={handleSearchKeyDown}
+            aria-label="Buscar en la aplicación"
+            aria-controls="global-search-results"
             className="w-full pl-10 pr-4 py-2 bg-gray-100 dark:bg-gray-700 border-0 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
           />
         </div>
+        {searchOpen && normalizedSearchTerm && (
+          <div id="global-search-results" role="listbox" className="absolute left-0 right-0 top-full z-20 mt-2 overflow-hidden rounded-lg border border-gray-200 bg-white shadow-lg dark:border-gray-700 dark:bg-gray-800">
+            {searchResults.length > 0 ? searchResults.map((result) => {
+              const Icon = result.icon
+              return (
+                <Link
+                  key={result.href}
+                  href={result.href}
+                  role="option"
+                  onClick={() => {
+                    setSearchTerm("")
+                    setSearchOpen(false)
+                  }}
+                  className="flex items-center gap-3 px-4 py-3 hover:bg-gray-100 dark:hover:bg-gray-700"
+                >
+                  <Icon className="h-5 w-5 shrink-0 text-blue-600 dark:text-blue-400" />
+                  <span className="min-w-0">
+                    <span className="block truncate text-sm font-medium text-gray-900 dark:text-white">{result.label}</span>
+                    <span className="block truncate text-xs text-gray-500 dark:text-gray-400">{result.description}</span>
+                  </span>
+                </Link>
+              )
+            }) : (
+              <p className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">No se encontraron opciones</p>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Actions */}

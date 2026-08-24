@@ -116,7 +116,7 @@ const statusConfig = {
 }
 
 export default function MallaCurricular() {
-  const [expandedSemesters, setExpandedSemesters] = useState<number[]>([1, 2, 3])
+  const [expandedSemesters, setExpandedSemesters] = useState<number[]>([])
   const [curriculum, setCurriculum] = useState<CurriculumSemester[] | null>(null)
   const [selectedCredits, setSelectedCredits] = useState(0)
   const [period, setPeriod] = useState("")
@@ -132,7 +132,11 @@ export default function MallaCurricular() {
       setSelectedCredits(data.selectedCredits || 0)
       setPeriod(data.period || "")
       setCurrentSemester(data.currentSemester || null)
-    }).catch(() => setCurriculum(mockCurriculum))
+      setExpandedSemesters(data.currentSemester ? [data.currentSemester] : [])
+    }).catch(() => {
+      setCurriculum(mockCurriculum)
+      setExpandedSemesters([1])
+    })
   }, [])
 
   const toggleCourseSelection = async (course: CurriculumCourse) => {
