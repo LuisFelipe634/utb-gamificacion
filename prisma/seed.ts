@@ -40,7 +40,7 @@ async function main() {
     data: {
       code: 'ISCO',
       name: 'Ingeniería de Sistemas',
-      totalCredits: 160,
+        totalCredits: 162,
       totalSemesters: 10,
       version: '2019'
     }
@@ -48,37 +48,112 @@ async function main() {
 
   console.log('✅ Programa creado:', program.name)
 
-  // Crear semestres y cursos de ejemplo
+  // Malla del plan 2019: 10 niveles, 55 cursos y 162 créditos.
   const semestersData = [
     {
       number: 1,
       courses: [
-        { code: 'MAT101', name: 'Cálculo I', credits: 4, type: 'OBLIGATORIO' as const, prereq: undefined },
-        { code: 'PRO101', name: 'Introducción a la Programación', credits: 3, type: 'OBLIGATORIO' as const, prereq: undefined },
-        { code: 'FIS101', name: 'Física I', credits: 4, type: 'OBLIGATORIO' as const, prereq: undefined },
-        { code: 'QUI101', name: 'Química General', credits: 3, type: 'GENERAL' as const, prereq: undefined },
-        { code: 'ING101', name: 'Inglés I', credits: 2, type: 'GENERAL' as const, prereq: undefined }
+          { code: 'H01A', name: 'Taller de Comprensión Lectora', credits: 3, type: 'GENERAL' as const, prereq: [] },
+          { code: 'M01A', name: 'Cálculo Diferencial', credits: 4, type: 'OBLIGATORIO' as const, prereq: [] },
+          { code: 'M02A', name: 'Matemáticas Básicas', credits: 2, type: 'OBLIGATORIO' as const, prereq: [] },
+          { code: 'Q01A', name: 'Química General', credits: 3, type: 'GENERAL' as const, prereq: [] },
+          { code: 'U01A', name: 'Desarrollo Universitario', credits: 0, type: 'GENERAL' as const, prereq: [] },
+          { code: 'C01A', name: 'Seminario de Ingeniería de Sistemas y Computación', credits: 1, type: 'OBLIGATORIO' as const, prereq: [] },
+          { code: 'C02A', name: 'Fundamentos de Programación', credits: 3, type: 'OBLIGATORIO' as const, prereq: [] }
       ]
     },
     {
       number: 2,
       courses: [
-        { code: 'MAT102', name: 'Cálculo II', credits: 4, type: 'OBLIGATORIO' as const, prereq: ['MAT101'] },
-        { code: 'PRO102', name: 'Programación Orientada a Objetos', credits: 3, type: 'OBLIGATORIO' as const, prereq: ['PRO101'] },
-        { code: 'FIS102', name: 'Física II', credits: 4, type: 'OBLIGATORIO' as const, prereq: ['FIS101'] },
-        { code: 'MAT103', name: 'Álgebra Lineal', credits: 3, type: 'OBLIGATORIO' as const, prereq: undefined },
-        { code: 'ING102', name: 'Inglés II', credits: 2, type: 'GENERAL' as const, prereq: ['ING101'] }
+          { code: 'LE1A', name: 'Lengua Extranjera I', credits: 2, type: 'GENERAL' as const, prereq: [] },
+          { code: 'F01A', name: 'Física Mecánica', credits: 4, type: 'OBLIGATORIO' as const, prereq: [] },
+          { code: 'M03A', name: 'Cálculo Integral', credits: 4, type: 'OBLIGATORIO' as const, prereq: ['M01A', 'M02A'] },
+          { code: 'M04A', name: 'Álgebra Lineal', credits: 3, type: 'OBLIGATORIO' as const, prereq: ['M02A'] },
+          { code: 'C03A', name: 'Programación', credits: 3, type: 'OBLIGATORIO' as const, prereq: ['C02A'] }
       ]
     },
     {
       number: 3,
       courses: [
-        { code: 'MAT201', name: 'Cálculo III', credits: 4, type: 'OBLIGATORIO' as const, prereq: ['MAT102'] },
-        { code: 'PRO201', name: 'Estructuras de Datos', credits: 3, type: 'OBLIGATORIO' as const, prereq: ['PRO102'] },
-        { code: 'FIS201', name: 'Física III', credits: 4, type: 'OBLIGATORIO' as const, prereq: ['FIS102'] },
-        { code: 'MAT202', name: 'Probabilidad y Estadística', credits: 3, type: 'OBLIGATORIO' as const, prereq: ['MAT103'] },
-        { code: 'ING201', name: 'Inglés III', credits: 2, type: 'GENERAL' as const, prereq: ['ING102'] }
+          { code: 'LE2A', name: 'Lengua Extranjera II', credits: 2, type: 'GENERAL' as const, prereq: ['LE1A'] },
+          { code: 'H02A', name: 'Taller de Escritura Académica', credits: 3, type: 'GENERAL' as const, prereq: ['H01A'] },
+          { code: 'F02A', name: 'Física Electricidad y Magnetismo', credits: 4, type: 'OBLIGATORIO' as const, prereq: ['F01A'] },
+          { code: 'M05A', name: 'Cálculo Vectorial', credits: 4, type: 'OBLIGATORIO' as const, prereq: ['M03A', 'M04A'] },
+          { code: 'C04A', name: 'Programación Orientada a Objetos', credits: 3, type: 'OBLIGATORIO' as const, prereq: ['C03A'] }
       ]
+      },
+      {
+        number: 4,
+        courses: [
+          { code: 'LE3A', name: 'Lengua Extranjera III', credits: 2, type: 'GENERAL' as const, prereq: ['LE2A'] },
+          { code: 'H03A', name: 'Constitución Política', credits: 2, type: 'GENERAL' as const, prereq: [] },
+          { code: 'M06A', name: 'Ecuaciones Diferenciales y en Diferencia', credits: 4, type: 'OBLIGATORIO' as const, prereq: ['M05A'] },
+          { code: 'C05A', name: 'Estructura de Datos', credits: 3, type: 'OBLIGATORIO' as const, prereq: ['C04A'] },
+          { code: 'C06A', name: 'Matemática Discreta', credits: 3, type: 'OBLIGATORIO' as const, prereq: ['M02A'] }
+        ]
+      },
+      {
+        number: 5,
+        courses: [
+          { code: 'LE4A', name: 'Lengua Extranjera IV', credits: 2, type: 'GENERAL' as const, prereq: ['LE3A'] },
+          { code: 'E01A', name: 'Estadística y Probabilidad', credits: 3, type: 'OBLIGATORIO' as const, prereq: ['M04A'] },
+          { code: 'A01A', name: 'Arquitectura de Software', credits: 3, type: 'OBLIGATORIO' as const, prereq: ['C05A'] },
+          { code: 'A02A', name: 'Desarrollo de Software', credits: 3, type: 'OBLIGATORIO' as const, prereq: ['C05A'] },
+          { code: 'A03A', name: 'Algoritmos y Complejidad', credits: 3, type: 'OBLIGATORIO' as const, prereq: ['C05A'] },
+          { code: 'C07A', name: 'Base de Datos', credits: 3, type: 'OBLIGATORIO' as const, prereq: ['C05A'] }
+        ]
+      },
+      {
+        number: 6,
+        courses: [
+          { code: 'LE5A', name: 'Lengua Extranjera V', credits: 2, type: 'GENERAL' as const, prereq: ['LE4A'] },
+          { code: 'E02A', name: 'Estadística Inferencial', credits: 3, type: 'OBLIGATORIO' as const, prereq: ['E01A'] },
+          { code: 'G04A', name: 'Creatividad y Emprendimiento', credits: 3, type: 'GENERAL' as const, prereq: [] },
+          { code: 'A04A', name: 'Formulación y Evaluación de Proyectos', credits: 3, type: 'OBLIGATORIO' as const, prereq: ['A02A'] },
+          { code: 'C08A', name: 'Procesamiento Numérico', credits: 3, type: 'OBLIGATORIO' as const, prereq: ['M05A'] },
+          { code: 'C09A', name: 'Comunicaciones y Redes', credits: 3, type: 'OBLIGATORIO' as const, prereq: ['C07A'] }
+        ]
+      },
+      {
+        number: 7,
+        courses: [
+          { code: 'H05A', name: 'Ciudadanía Global', credits: 2, type: 'GENERAL' as const, prereq: [] },
+          { code: 'M12A', name: 'Inteligencia Artificial', credits: 3, type: 'OBLIGATORIO' as const, prereq: ['A03A'] },
+          { code: 'A05A', name: 'Ingeniería de Software', credits: 3, type: 'OBLIGATORIO' as const, prereq: ['A01A', 'A02A'] },
+          { code: 'C10A', name: 'Arquitectura del Computador', credits: 3, type: 'OBLIGATORIO' as const, prereq: ['C09A'] },
+          { code: 'EC1A', name: 'Electiva Complementaria I', credits: 3, type: 'ELECTIVA' as const, prereq: [] },
+          { code: 'C11A', name: 'Sistemas Operativos', credits: 3, type: 'OBLIGATORIO' as const, prereq: ['C10A'] }
+        ]
+      },
+      {
+        number: 8,
+        courses: [
+          { code: 'HU1A', name: 'Electiva de Humanidades I', credits: 2, type: 'ELECTIVA' as const, prereq: [] },
+          { code: 'A06A', name: 'Infraestructura para TI', credits: 3, type: 'OBLIGATORIO' as const, prereq: ['C10A'] },
+          { code: 'A07A', name: 'Computación en Paralelo', credits: 3, type: 'OBLIGATORIO' as const, prereq: ['C11A'] },
+          { code: 'EC2A', name: 'Electiva Complementaria II', credits: 3, type: 'ELECTIVA' as const, prereq: [] },
+          { code: 'C12A', name: 'Tópicos Especiales de Ciencias Computacionales', credits: 3, type: 'OBLIGATORIO' as const, prereq: ['C11A'] },
+          { code: 'P01A', name: 'Proyecto de Ingeniería I', credits: 3, type: 'OBLIGATORIO' as const, prereq: ['A05A'] }
+        ]
+      },
+      {
+        number: 9,
+        courses: [
+          { code: 'HU2A', name: 'Electiva de Humanidades II', credits: 2, type: 'ELECTIVA' as const, prereq: [] },
+          { code: 'EE1A', name: 'Electiva Empresarial', credits: 3, type: 'ELECTIVA' as const, prereq: [] },
+          { code: 'A08A', name: 'Sistemas y Modelos', credits: 3, type: 'OBLIGATORIO' as const, prereq: ['A05A'] },
+          { code: 'EC3A', name: 'Electiva Complementaria III', credits: 3, type: 'ELECTIVA' as const, prereq: [] },
+          { code: 'P02A', name: 'Proyecto de Ingeniería II', credits: 3, type: 'OBLIGATORIO' as const, prereq: ['P01A'] },
+          { code: 'EL1A', name: 'Electiva de Libre Elección', credits: 4, type: 'ELECTIVA' as const, prereq: [] }
+        ]
+      },
+      {
+        number: 10,
+        courses: [
+          { code: 'H04A', name: 'Ética', credits: 2, type: 'GENERAL' as const, prereq: [] },
+          { code: 'EC4A', name: 'Electiva Complementaria IV', credits: 3, type: 'ELECTIVA' as const, prereq: [] },
+          { code: 'P03A', name: 'Práctica Profesional', credits: 9, type: 'OBLIGATORIO' as const, prereq: ['P02A'] }
+        ]
     }
   ]
 
@@ -157,11 +232,11 @@ async function main() {
 
   // Crear misiones de ejemplo
   const missionsData = [
-    { title: 'Planificar Próximo Semestre', description: 'Crea un plan de estudio', type: 'PLANIFICACION' as const, pointsReward: 150 },
-    { title: 'Completar Taller Práctico', description: 'Realiza el taller de bases de datos', type: 'ACADEMICO' as const, pointsReward: 200 },
-    { title: 'Mejorar Promedio', description: 'Incrementa tu promedio 0.5 puntos', type: 'MEJORA_CONTINUA' as const, pointsReward: 250 },
-    { title: 'Asistencia Perfecta', description: '5 clases sin faltar', type: 'HABITO_ESTUDIO' as const, pointsReward: 100 },
-    { title: 'Mentorar Compañero', description: 'Ayuda a un compañero', type: 'IMPACTO_SOCIAL' as const, pointsReward: 300 }
+     { title: 'Planificar Próximo Semestre', description: 'Selecciona materias disponibles sin superar 18 créditos.', type: 'PLANIFICACION' as const, pointsReward: 150, autoVerify: true },
+     { title: 'Explorar tu Malla', description: 'Consulta materias de al menos tres semestres.', type: 'ACADEMICO' as const, pointsReward: 50, autoVerify: true },
+     { title: 'Revisar tu Progreso', description: 'Consulta tus estadísticas académicas de la semana.', type: 'ACADEMICO' as const, pointsReward: 50, autoVerify: true },
+     { title: 'Constancia Académica', description: 'Ingresa a la plataforma cuatro días diferentes durante la semana.', type: 'HABITO_ESTUDIO' as const, pointsReward: 100, autoVerify: true },
+     { title: 'Completar un Quiz', description: 'Obtén al menos 70% en un cuestionario académico.', type: 'ACADEMICO' as const, pointsReward: 100, autoVerify: true }
   ]
 
   for (const missionData of missionsData) {

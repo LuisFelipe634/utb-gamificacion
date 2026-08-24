@@ -60,6 +60,7 @@ export async function GET() {
         description: mission.description,
         type: mission.type,
         points: mission.pointsReward,
+        autoVerify: mission.autoVerify,
         requiredLevel: mission.requiredLevel,
         startDate: mission.startDate,
         endDate: mission.endDate,
@@ -222,7 +223,6 @@ export async function POST(request: Request) {
     }
 
     if (action === "complete") {
-      // Enviar la misión a revisión; los puntos se otorgan tras la aprobación docente.
       if (!existingMission || existingMission.status !== "EN_PROGRESO") {
         return NextResponse.json(
           { error: "No puedes completar esta misión" },
@@ -231,32 +231,48 @@ export async function POST(request: Request) {
       }
 
       const submittedEvidence = typeof evidence === "string" ? evidence.trim() : existingMission.evidence?.trim()
-      if (!submittedEvidence) {
+      if (!mission.autoVerify && !submittedEvidence) {
         return NextResponse.json(
           { error: "Debes adjuntar una evidencia antes de enviar la misión" },
           { status: 400 }
         )
       }
 
-      const studentMission = await prisma.studentMission.update({
-        where: { id: existingMission.id },
-        data: {
-          status: "EN_REVISION",
-          progress: 100,
-          completedAt: new Date(),
-          evidence: submittedEvidence
-        }
-      })
+      const studentMission = await prisma.$transaction(async (transaction) => {
+        const completedMission = await transaction.studentMission.update({
+          where: { id: existingMission.id },
+          data: {
+            status: mission.autoVerify ? "COMPLETADA" : "EN_REVISION",
+            progress: 100,
+            completedAt: new Date(),
+            evidence: mission.autoVerify ? "Cumplimiento registrado automáticamente" : submittedEvidence
+          }
+        })
 
-      // Notificar que la evidencia está pendiente de revisión.
-      await prisma.notification.create({
-        data: {
-          userId,
-          title: "Misión enviada a revisión",
-          message: `Tu evidencia para «${mission.title}» será revisada por un docente.`,
-          type: "INFO",
-          link: "/misiones"
+        if (mission.autoVerify) {
+          await transaction.point.create({
+            data: {
+              userId,
+              amount: mission.pointsReward,
+              source: "MISION_COMPLETADA",
+              description: `Misión completada: ${mission.title}`
+            }
+          })
         }
+
+        await transaction.notification.create({
+          data: {
+            userId,
+            title: mission.autoVerify ? "Misión completada" : "Misión enviada a revisión",
+            message: mission.autoVerify
+              ? `Completaste «${mission.title}» y ganaste ${mission.pointsReward} puntos.`
+              : `Tu evidencia para «${mission.title}» será revisada por un docente.`,
+            type: mission.autoVerify ? "LOGRO_OBTENIDO" : "INFO",
+            link: "/misiones"
+          }
+        })
+
+        return completedMission
       })
 
       return NextResponse.json({ studentMission })

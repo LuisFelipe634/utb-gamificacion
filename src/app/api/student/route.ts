@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { getAverageGrade, getCurrentSemester } from "@/lib/academic"
 import { auth } from "@/lib/auth"
+import { calculateStreak } from "@/lib/streak"
 import { syncDynamicBadges } from "@/lib/badges"
 
 export async function GET() {
@@ -16,7 +17,14 @@ export async function GET() {
       return NextResponse.json({ error: "Esta información es exclusiva para estudiantes" }, { status: 403 })
     }
 
-    const userId = session.user.id as string;
+    const userId = session.user.id as string
+    const todayStart = new Date()
+    todayStart.setUTCHours(0, 0, 0, 0)
+    const todayActivity = await prisma.activity.findFirst({ where: { userId, action: "ACADEMIC_DAILY_ACTIVITY", createdAt: { gte: todayStart } } })
+    if (!todayActivity) {
+      await prisma.activity.create({ data: { userId, action: "ACADEMIC_DAILY_ACTIVITY", details: { source: "student_profile" } } })
+    }
+
     await syncDynamicBadges(userId);
 
     const user = await prisma.user.findUnique({
@@ -61,6 +69,7 @@ export async function GET() {
 
     // Calcular puntos totales
     const totalPoints = user.points.reduce((acc, p) => acc + p.amount, 0)
+    const streakActivities = await prisma.activity.findMany({ where: { userId, action: "ACADEMIC_DAILY_ACTIVITY" }, select: { createdAt: true }, orderBy: { createdAt: "desc" } })
 
     // Obtener nivel actual
     const levels = await prisma.level.findMany({
@@ -113,7 +122,8 @@ export async function GET() {
         pointsToNextLevel: nextLevel ? nextLevel.minPoints - totalPoints : 0,
         activeMissionsCount: activeMissions.length,
         completedMissionsCount: completedMissions.length,
-        badgesCount: user.badges.length
+        badgesCount: user.badges.length,
+        streak: calculateStreak(streakActivities)
       },
       missions: user.missions.map((m) => ({
         id: m.id,

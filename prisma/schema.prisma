@@ -249,6 +249,7 @@ model Mission {
   description   String
   type          MissionType
   pointsReward  Int
+  autoVerify    Boolean      @default(false)
   courseId       String?
   requiredLevel Int?         // Nivel mínimo requerido
   isActive      Boolean      @default(true)

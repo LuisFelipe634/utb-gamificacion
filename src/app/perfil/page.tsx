@@ -2,12 +2,12 @@
 
 import Link from "next/link"
 import { useEffect, useState } from "react"
-import { Award, BookOpen, CheckCircle2, ChevronRight, Loader2, Target, TrendingUp, UserRound } from "lucide-react"
+import { Award, BookOpen, CheckCircle2, ChevronRight, Flame, Loader2, Target, TrendingUp, UserRound } from "lucide-react"
 
 type ProfileData = {
   user: { name: string; email: string }
   profile: { studentCode: string; currentSemester: number; totalCredits: number; averageGrade: number; level: number; program: { name: string; totalCredits: number } }
-  stats: { totalPoints: number; currentLevel: string; nextLevel: string | null; pointsToNextLevel: number; activeMissionsCount: number; completedMissionsCount: number; badgesCount: number }
+  stats: { totalPoints: number; currentLevel: string; nextLevel: string | null; pointsToNextLevel: number; activeMissionsCount: number; completedMissionsCount: number; badgesCount: number; streak: { current: number; best: number; activeToday: boolean } }
   recentBadges: { id: string; name: string; icon: string; earned: string }[]
 }
 
@@ -33,6 +33,11 @@ export default function ProfilePage() {
 
       <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {[{ label: "Puntos acumulados", value: data.stats.totalPoints.toLocaleString(), icon: TrendingUp }, { label: "Insignias obtenidas", value: data.stats.badgesCount, icon: Award }, { label: "Semestre actual", value: data.profile.currentSemester, icon: BookOpen }, { label: "Misiones completadas", value: data.stats.completedMissionsCount, icon: Target }].map(({ label, value, icon: Icon }) => <div key={label} className="rounded-xl border border-gray-200 bg-white p-5 dark:border-gray-700 dark:bg-gray-800"><Icon className="mb-3 h-5 w-5 text-blue-600" /><p className="text-sm text-gray-500">{label}</p><p className="text-3xl font-bold text-gray-900 dark:text-white">{value}</p></div>)}
+      </section>
+
+      <section className="flex items-center justify-between rounded-xl border border-orange-200 bg-orange-50 p-5 dark:border-orange-900 dark:bg-orange-900/20">
+        <div><p className="text-sm font-semibold text-orange-800 dark:text-orange-200">Racha académica</p><p className="mt-1 text-3xl font-bold text-orange-900 dark:text-orange-100">{data.stats.streak.current} días</p><p className="text-sm text-orange-700 dark:text-orange-300">Mejor racha: {data.stats.streak.best} días</p></div>
+        <Flame className="h-10 w-10 text-orange-600 dark:text-orange-400" />
       </section>
 
       <div className="grid gap-6 lg:grid-cols-[1.2fr_1fr]">

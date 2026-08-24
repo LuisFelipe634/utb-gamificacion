@@ -19,6 +19,7 @@ interface Mission {
   description: string
   type: string
   points: number
+  autoVerify: boolean
   requiredLevel: number | null
   startDate: string | null
   endDate: string | null
@@ -303,19 +304,19 @@ export default function Misiones() {
                 )}
                 {(mission.status === "EN_PROGRESO" || mission.status === "RECHAZADA") && (
                   <div className="flex w-full flex-col items-end gap-2">
-                    <textarea
+                    {!mission.autoVerify && <textarea
                       value={evidence[mission.id] || ""}
                       onChange={(event) => setEvidence((previous) => ({ ...previous, [mission.id]: event.target.value }))}
                       placeholder="Describe o enlaza tu evidencia"
                       rows={2}
                       className="w-full rounded-lg border border-gray-300 p-2 text-xs dark:border-gray-600 dark:bg-gray-700"
-                    />
+                    />}
                     <button
                       onClick={() => handleMissionAction(mission.id, "complete")}
                       disabled={isActionLoading}
                       className="px-3 py-1 bg-purple-500 text-white text-sm rounded-lg hover:bg-purple-600 disabled:opacity-50 flex items-center gap-1"
                     >
-                      {isActionLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Check className="w-3 h-3" />Enviar a revisión</>}
+                      {isActionLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Check className="w-3 h-3" />{mission.autoVerify ? "Completar misión" : "Enviar a revisión"}</>}
                     </button>
                   </div>
                 )}

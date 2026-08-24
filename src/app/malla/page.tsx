@@ -19,6 +19,7 @@ type CurriculumCourse = {
   status: string
   selected?: boolean
   grade?: number | null
+  missingPrerequisites?: string[]
 }
 
 type CurriculumSemester = {
@@ -279,6 +280,9 @@ export default function MallaCurricular() {
                             <p className="font-mono text-xs opacity-75">{course.code}</p>
                             <p className="font-medium">{course.name}</p>
                             <p className="text-sm opacity-75">{course.credits} créditos</p>
+                            {course.status === "blocked" && course.missingPrerequisites?.length ? (
+                              <p className="mt-2 text-xs font-medium">Requiere: {course.missingPrerequisites.join(", ")}</p>
+                            ) : null}
                           </div>
                           <config.icon className="w-5 h-5 opacity-75" />
                         </div>

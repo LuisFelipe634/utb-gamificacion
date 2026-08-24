@@ -1,3 +1,4 @@
+import { calculateStreak } from "@/lib/streak"
 import { NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
@@ -37,6 +38,12 @@ export async function GET() {
       }
     })
 
+    const streakActivities = await prisma.activity.findMany({
+      where: { userId: { in: students.map((student) => student.id) }, action: "ACADEMIC_DAILY_ACTIVITY" },
+      select: { userId: true, createdAt: true },
+      orderBy: { createdAt: "desc" }
+    })
+
     const data = students.flatMap((student) => {
       const profile = student.studentProfile
       if (!profile) return []
@@ -71,6 +78,7 @@ export async function GET() {
         badges: student.badges.map(({ badge, earnedAt, evidence }) => ({ name: badge.name, icon: badge.iconUrl, category: badge.category, earnedAt, evidence })),
         recommendations: profile.recommendations.map(({ title, description, priority }) => ({ title, description, priority })),
         suggestedCourses: suggestedCourses.map((course) => ({ code: course.code, name: course.name, credits: course.credits, semester: course.semester.number })),
+        streak: calculateStreak(streakActivities.filter((activity) => activity.userId === student.id)),
         risk: academicRisk,
         pendingMissions: student.missions.map(({ id, mission, evidence, completedAt, status }) => ({ id, title: mission.title, description: mission.description, points: mission.pointsReward, evidence, completedAt, status }))
       }]

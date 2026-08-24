@@ -45,7 +45,10 @@ export async function GET() {
           enrollment?.status === "CURSANDO" ? "in_progress" :
             enrollment?.status === "REPROBADO" ? "available" : "blocked"
         const prerequisitesMet = course.prerequisites.every(({ prerequisite }) => approvedIds.has(prerequisite.id))
-        return { id: course.id, code: course.code, name: course.name, credits: course.credits, status: status === "blocked" && prerequisitesMet ? "available" : status, grade: enrollment?.grade ?? null, selected: selectedIds.has(course.id), prerequisitesMet }
+        const missingPrerequisites = course.prerequisites
+          .filter(({ prerequisite }) => !approvedIds.has(prerequisite.id))
+          .map(({ prerequisite }) => `${prerequisite.code} - ${prerequisite.name}`)
+        return { id: course.id, code: course.code, name: course.name, credits: course.credits, status: status === "blocked" && prerequisitesMet ? "available" : status, grade: enrollment?.grade ?? null, selected: selectedIds.has(course.id), prerequisitesMet, missingPrerequisites }
       })
     }))
 

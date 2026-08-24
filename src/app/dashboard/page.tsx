@@ -10,6 +10,7 @@ import {
   AlertTriangle,
   Bell,
   ChevronRight,
+  Flame,
   Loader2,
   Lightbulb,
   X
@@ -43,6 +44,7 @@ interface StudentData {
     pointsToNextLevel: number
     activeMissionsCount: number
     completedMissionsCount: number
+    streak: { current: number; best: number; activeToday: boolean }
     badgesCount: number
   }
   missions: Array<{
@@ -251,7 +253,7 @@ export default function Dashboard() {
       )}
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
         {/* Nivel */}
         <div className="bg-white dark:bg-gray-800 rounded-xl p-5 border border-gray-200 dark:border-gray-700">
           <div className="flex items-center justify-between">
@@ -316,6 +318,20 @@ export default function Dashboard() {
             </div>
             <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-xl flex items-center justify-center">
               <BookOpen className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+            </div>
+          </div>
+        </div>
+
+        {/* Racha */}
+        <div className="bg-white dark:bg-gray-800 rounded-xl p-5 border border-gray-200 dark:border-gray-700">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-500 dark:text-gray-400">Racha académica</p>
+              <p className="text-3xl font-bold text-gray-900 dark:text-white">{data.stats.streak.current} días</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">Mejor: {data.stats.streak.best} días</p>
+            </div>
+            <div className="w-12 h-12 bg-orange-100 dark:bg-orange-900/30 rounded-xl flex items-center justify-center">
+              <Flame className="w-6 h-6 text-orange-600 dark:text-orange-400" />
             </div>
           </div>
         </div>
