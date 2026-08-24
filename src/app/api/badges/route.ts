@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { auth } from "@/lib/auth"
-import { syncDynamicBadges } from "@/lib/badges"
+import { getBadgeProgress, syncDynamicBadges } from "@/lib/badges"
 
 export async function GET() {
   try {
@@ -30,7 +30,18 @@ export async function GET() {
       }
     })
 
-    const earnedBadgeIds = earnedBadges.map((eb) => eb.badgeId)
+    const studentData = await prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        studentProfile: {
+          include: {
+            academicHistory: true,
+            enrollments: { include: { course: { include: { semester: true } } } },
+            program: { include: { semesters: { include: { courses: true } } } }
+          }
+        }
+      }
+    })
 
     // Combinar información
     const badges = allBadges.map((badge) => {
@@ -44,6 +55,7 @@ export async function GET() {
         category: badge.category,
         requiredLevel: badge.requiredLevel,
         pointsRequired: badge.pointsRequired,
+        progress: studentData ? getBadgeProgress(studentData, badge.name) : null,
         earned: !!earned,
         earnedAt: earned?.earnedAt || null,
         evidence: earned?.evidence || null

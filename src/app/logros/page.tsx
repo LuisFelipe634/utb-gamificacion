@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useEffectEvent } from "react"
 import {
   Trophy,
   Award,
@@ -24,6 +24,7 @@ interface Badge {
   earned: boolean
   earnedAt: string | null
   evidence: string | null
+  progress: { current: number; target: number; percentage: number } | null
 }
 
 interface BadgeStats {
@@ -47,10 +48,6 @@ export default function Logros() {
   const [filter, setFilter] = useState<string>("all")
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    fetchBadges()
-  }, [])
-
   const fetchBadges = async () => {
     try {
       const response = await fetch("/api/badges")
@@ -64,6 +61,14 @@ export default function Logros() {
       setLoading(false)
     }
   }
+
+  const loadBadges = useEffectEvent(fetchBadges)
+
+  useEffect(() => {
+    // Load and synchronize badges when the page becomes available.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void loadBadges()
+  }, [])
 
   const filteredBadges = badges.filter((badge) => {
     if (filter === "all") return true
@@ -216,6 +221,12 @@ export default function Logros() {
                 </div>
               ) : (
                 <div>
+                  {badge.progress && (
+                    <div className="mb-2">
+                      <div className="mb-1 flex justify-between text-xs text-gray-500 dark:text-gray-400"><span>Progreso</span><span>{badge.progress.current}/{badge.progress.target}</span></div>
+                      <div className="h-2 overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700"><div className="h-full rounded-full bg-blue-500" style={{ width: `${badge.progress.percentage}%` }} /></div>
+                    </div>
+                  )}
                   <p className="text-xs text-gray-500 dark:text-gray-400">
                     {badge.requiredLevel && `Requiere nivel ${badge.requiredLevel}`}
                     {badge.pointsRequired && `Requiere ${badge.pointsRequired} puntos`}
