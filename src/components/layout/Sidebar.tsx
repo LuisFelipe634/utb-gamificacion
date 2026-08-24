@@ -37,15 +37,15 @@ export function Sidebar() {
   const isTeacher = session?.user?.role === "TEACHER"
 
   return (
-    <aside className="w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col">
-      <div className="p-6 border-b border-gray-200 dark:border-gray-700">
-        <div className="flex flex-col gap-1.5">
+    <aside className="w-56 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col">
+      <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+        <div className="flex flex-col items-center gap-1.5">
           <img 
             src="/utb-logotipo.png" 
             alt="UTB Logo" 
-            className="w-24 h-auto object-contain dark:drop-shadow-[0_0_8px_rgba(255,255,255,0.4)]"
+            className="w-20 h-auto object-contain dark:drop-shadow-[0_0_8px_rgba(255,255,255,0.4)]"
           />
-          <span className="text-[11px] font-bold uppercase tracking-widest text-blue-600 dark:text-blue-400 pl-1">
+          <span className="text-[11px] font-bold uppercase tracking-widest text-blue-600 dark:text-blue-400">
             Gamificado
           </span>
         </div>

@@ -63,8 +63,8 @@ export default function LoginPage() {
       <div className="w-full max-w-md">
         {/* Logo */}
         <div className="text-center mb-8">
-          <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
-            <GraduationCap className="w-8 h-8 text-white" />
+          <div className="mx-auto mb-4 flex aspect-square h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-purple-600">
+            <GraduationCap className="h-6 w-6 text-white" />
           </div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">UTB Gamificación</h1>
           <p className="text-gray-600 dark:text-gray-400 mt-1">
