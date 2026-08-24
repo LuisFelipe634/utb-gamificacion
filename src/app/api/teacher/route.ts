@@ -18,11 +18,26 @@ export async function GET() {
   try {
     const teacher = await prisma.user.findUnique({
       where: { id: session.user.id },
-      include: { teacherProfile: true }
+      include: {
+        teacherProfile: {
+          include: {
+            assignedCourses: { include: { course: { include: { semester: true } } } }
+          }
+        }
+      }
     })
+    const assignedCourses = teacher?.teacherProfile?.assignedCourses || []
+    const assignedCourseIds = assignedCourses.map((assignment) => assignment.courseId)
 
     const students = await prisma.user.findMany({
-      where: { role: "STUDENT", studentProfile: { isNot: null } },
+      where: {
+        role: "STUDENT",
+        studentProfile: {
+          is: {
+            enrollments: { some: { courseId: { in: assignedCourseIds } } }
+          }
+        }
+      },
       orderBy: { name: "asc" },
       include: {
         studentProfile: {
@@ -81,8 +96,24 @@ export async function GET() {
         streak: calculateStreak(streakActivities.filter((activity) => activity.userId === student.id)),
         risk: academicRisk,
         pendingMissions: student.missions.map(({ id, mission, evidence, completedAt, status }) => ({ id, title: mission.title, description: mission.description, points: mission.pointsReward, evidence, completedAt, status }))
+        ,assignedCourseIds: profile.enrollments.filter((enrollment) => assignedCourseIds.includes(enrollment.courseId)).map((enrollment) => enrollment.courseId)
       }]
     })
+
+    const courses = assignedCourses.map((assignment) => ({
+      id: assignment.course.id,
+      code: assignment.course.code,
+      name: assignment.course.name,
+      semester: assignment.course.semester.number,
+      period: assignment.period,
+      students: data.filter((student) => student.assignedCourseIds.includes(assignment.courseId)).map((student) => ({
+        id: student.id,
+        name: student.name,
+        studentCode: student.studentCode,
+        averageGrade: student.averageGrade,
+        totalCredits: student.totalCredits
+      }))
+    }))
 
     return NextResponse.json({
       teacher: teacher ? {
@@ -92,6 +123,7 @@ export async function GET() {
         role: teacher.role,
         profile: teacher.teacherProfile
       } : null,
+      courses,
       students: data,
       pendingMissions: data.flatMap((student) => student.pendingMissions.map((mission) => ({ ...mission, studentId: student.id, studentName: student.name, studentCode: student.studentCode })))
     })

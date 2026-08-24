@@ -36,8 +36,19 @@ type PendingMission = {
   studentCode?: string
 }
 
+type TeacherCourse = {
+  id: string
+  code: string
+  name: string
+  semester: number
+  period: string
+  students: { id: string; name: string; studentCode: string; averageGrade: number; totalCredits: number }[]
+}
+
 export default function TeachersPage() {
   const [students, setStudents] = useState<Student[]>([])
+  const [courses, setCourses] = useState<TeacherCourse[]>([])
+  const [selectedCourseId, setSelectedCourseId] = useState("")
   const [selectedId, setSelectedId] = useState("")
   const [search, setSearch] = useState("")
   const [error, setError] = useState("")
@@ -50,6 +61,8 @@ export default function TeachersPage() {
     fetch("/api/teacher").then(async (response) => {
       if (!response.ok) throw new Error("No se pudo cargar el seguimiento")
       const result = await response.json()
+      setCourses(result.courses)
+      setSelectedCourseId(result.courses[0]?.id || "")
       setStudents(result.students)
       setPendingMissions(result.pendingMissions)
       setSelectedId(result.students[0]?.id || "")
@@ -73,7 +86,11 @@ export default function TeachersPage() {
     }
   }
 
-  const visibleStudents = students.filter((student) => `${student.name} ${student.studentCode}`.toLowerCase().includes(search.toLowerCase()))
+  const selectedCourse = courses.find((course) => course.id === selectedCourseId)
+  const visibleStudents = students.filter((student) => {
+    const belongsToCourse = selectedCourse?.students.some((courseStudent) => courseStudent.id === student.id) || false
+    return belongsToCourse && `${student.name} ${student.studentCode}`.toLowerCase().includes(search.toLowerCase())
+  })
   const selected = students.find((student) => student.id === selectedId) || visibleStudents[0]
   const progress = selected ? Math.round((selected.totalCredits / selected.totalProgramCredits) * 100) : 0
 
@@ -84,6 +101,14 @@ export default function TeachersPage() {
         <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Seguimiento de estudiantes</h1>
         <p className="mt-1 text-gray-600 dark:text-gray-400">Analiza el avance, reconoce logros y orienta la siguiente ruta académica.</p>
       </header>
+
+      {!error && <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        {courses.map((course) => <button key={course.id} type="button" onClick={() => { setSelectedCourseId(course.id); setSelectedId(course.students[0]?.id || "") }} className={`rounded-xl border p-4 text-left transition-colors ${selectedCourseId === course.id ? "border-blue-500 bg-blue-50 dark:border-blue-400 dark:bg-blue-900/30" : "border-gray-200 bg-white hover:border-blue-300 dark:border-gray-700 dark:bg-gray-800"}`}>
+          <div className="flex items-start justify-between gap-3"><div><p className="text-xs font-semibold uppercase text-gray-500">Semestre {course.semester} · {course.period}</p><h2 className="mt-1 font-bold text-gray-900 dark:text-white">{course.code} · {course.name}</h2></div><BookOpen className="h-5 w-5 shrink-0 text-blue-600" /></div>
+          <p className="mt-3 text-sm text-gray-600 dark:text-gray-300">{course.students.length} estudiantes inscritos</p>
+        </button>)}
+        {!courses.length && <p className="rounded-xl border border-dashed p-6 text-sm text-gray-500">No tienes cursos asignados actualmente.</p>}
+      </section>}
 
       {error ? <p className="rounded-lg bg-red-50 p-4 text-red-700">{error}</p> : (
         <div className="grid gap-6 lg:grid-cols-[280px_1fr]">

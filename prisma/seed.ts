@@ -380,6 +380,42 @@ async function main() {
 
   console.log('✅ Usuario docente creado:', teacherUser.email)
 
+  const teacherProfile = await prisma.teacherProfile.findUnique({
+    where: { userId: teacherUser.id }
+  })
+  const assignedCourses = await prisma.course.findMany({
+    where: { code: { in: ['H01A', 'M01A', 'C02A'] } }
+  })
+
+  if (teacherProfile) {
+    for (const course of assignedCourses) {
+      await prisma.teacherCourse.create({
+        data: {
+          teacherId: teacherProfile.id,
+          courseId: course.id,
+          period: '2026-1'
+        }
+      })
+    }
+
+    const demoStudents = [demoProfile, await prisma.studentProfile.findUnique({ where: { userId: secondStudent.id } }), await prisma.studentProfile.findUnique({ where: { userId: juanitoStudent.id } })]
+    for (const student of demoStudents) {
+      if (!student) continue
+      for (const course of assignedCourses) {
+        await prisma.enrollment.create({
+          data: {
+            studentId: student.id,
+            courseId: course.id,
+            semesterCode: '2026-1',
+            status: 'CURSANDO'
+          }
+        })
+      }
+    }
+  }
+
+  console.log('✅ Cursos y estudiantes demo asignados al docente')
+
   console.log('🎉 Seed completado exitosamente!')
 }
 

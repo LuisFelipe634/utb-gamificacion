@@ -77,6 +77,7 @@ model TeacherProfile {
   isActive   Boolean @default(true)
 
   user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  assignedCourses TeacherCourse[]
 
   @@map("teacher_profiles")
 }
@@ -135,8 +136,23 @@ model Course {
   requiredBy      Prerequisite[] @relation("RequiredForCourse")
   enrollments     Enrollment[]
   missions        Mission[]
+  assignedTeachers TeacherCourse[]
 
   @@map("courses")
+}
+
+model TeacherCourse {
+  id        String   @id @default(cuid())
+  teacherId String
+  courseId  String
+  period    String
+  createdAt DateTime @default(now())
+
+  teacher TeacherProfile @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  course  Course         @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@unique([teacherId, courseId, period])
+  @@map("teacher_courses")
 }
 
 enum CourseType {
