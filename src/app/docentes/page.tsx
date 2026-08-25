@@ -97,9 +97,22 @@ export default function TeachersPage() {
   return (
     <div className="max-w-7xl mx-auto space-y-6">
       <header>
-        <p className="text-sm font-semibold text-blue-600 dark:text-blue-400">ACOMPAÑAMIENTO ACADÉMICO</p>
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Seguimiento de estudiantes</h1>
-        <p className="mt-1 text-gray-600 dark:text-gray-400">Analiza el avance, reconoce logros y orienta la siguiente ruta académica.</p>
+        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-gray-700 dark:bg-gray-800">
+          <div className="grid lg:grid-cols-[220px_1fr]">
+            <div className="flex flex-col items-center justify-center border-b border-slate-200 bg-slate-50 p-6 text-center dark:border-gray-700 dark:bg-gray-900/40 lg:border-b-0 lg:border-r">
+              <div className="flex h-20 w-20 items-center justify-center rounded-full bg-amber-100 text-2xl font-bold text-amber-700 dark:bg-amber-900/40 dark:text-amber-200">AC</div>
+              <p className="mt-4 text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Rol activo</p>
+              <h1 className="mt-1 font-bold text-slate-900 dark:text-white">Docente</h1>
+              <p className="mt-1 text-xs text-slate-500">Acompañamiento académico</p>
+            </div>
+            <div className="p-6 sm:p-8">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-blue-600 dark:text-blue-400">Gestión académica</p>
+              <h2 className="mt-2 text-2xl font-bold text-slate-900 dark:text-white">Tus cursos y estudiantes</h2>
+              <p className="mt-1 max-w-xl text-sm text-slate-500 dark:text-gray-400">Selecciona un curso para revisar el avance, reconocer logros y orientar a sus estudiantes.</p>
+              <div className="mt-6 flex flex-wrap gap-3 text-sm"><span className="rounded-full bg-slate-100 px-3 py-2 font-semibold text-slate-700 dark:bg-gray-700 dark:text-gray-200"><span className="mr-2 inline-block h-2 w-2 rounded-full bg-blue-600" />{courses.length} cursos asignados</span><span className="rounded-full bg-amber-50 px-3 py-2 font-semibold text-amber-700 dark:bg-amber-900/30 dark:text-amber-200">{students.length} estudiantes acompañados</span></div>
+            </div>
+          </div>
+        </div>
       </header>
 
       {!error && <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
