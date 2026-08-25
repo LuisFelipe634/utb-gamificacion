@@ -52,7 +52,7 @@ export default function TeachersPage() {
   const [selectedId, setSelectedId] = useState("")
   const [search, setSearch] = useState("")
   const [error, setError] = useState("")
-  const [pendingMissions, setPendingMissions] = useState<PendingMission[]>([])
+  const [allPendingMissions, setPendingMissions] = useState<PendingMission[]>([])
   const [reviewLoading, setReviewLoading] = useState<string | null>(null)
   const [reviewComment, setReviewComment] = useState<Record<string, string>>({})
   const [profileStudent, setProfileStudent] = useState<Student | null>(null)
@@ -91,7 +91,9 @@ export default function TeachersPage() {
     const belongsToCourse = selectedCourse?.students.some((courseStudent) => courseStudent.id === student.id) || false
     return belongsToCourse && `${student.name} ${student.studentCode}`.toLowerCase().includes(search.toLowerCase())
   })
-  const selected = students.find((student) => student.id === selectedId) || visibleStudents[0]
+  const selected = visibleStudents.find((student) => student.id === selectedId) || visibleStudents[0]
+  const courseStudentIds = new Set(selectedCourse?.students.map((student) => student.id) || [])
+  const pendingMissions = allPendingMissions.filter((mission) => mission.studentId && courseStudentIds.has(mission.studentId))
   const progress = selected ? Math.round((selected.totalCredits / selected.totalProgramCredits) * 100) : 0
 
   return (
@@ -126,9 +128,10 @@ export default function TeachersPage() {
       {error ? <p className="rounded-lg bg-red-50 p-4 text-red-700">{error}</p> : (
         <div className="grid gap-6 lg:grid-cols-[280px_1fr]">
           <aside className="rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
+            <div className="mb-4 border-b border-gray-100 pb-3 dark:border-gray-700"><p className="text-xs font-semibold uppercase tracking-wide text-blue-600 dark:text-blue-400">Curso seleccionado</p><p className="mt-1 truncate font-bold text-gray-900 dark:text-white">{selectedCourse ? `${selectedCourse.code} · ${selectedCourse.name}` : "Selecciona un curso"}</p></div>
             <div className="relative mb-4"><Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Buscar estudiante" className="w-full rounded-lg bg-gray-100 py-2 pl-9 pr-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700" /></div>
             <p className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase text-gray-500"><Users className="h-4 w-4" /> {visibleStudents.length} estudiantes</p>
-            <div className="space-y-1">{visibleStudents.map((student) => <button key={student.id} onClick={() => setSelectedId(student.id)} className={`w-full rounded-lg p-3 text-left ${selected?.id === student.id ? "bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300" : "hover:bg-gray-50 dark:hover:bg-gray-700"}`}><span className="block font-semibold">{student.name}</span><span className="text-xs text-gray-500">{student.studentCode} · Semestre {student.semester}</span></button>)}</div>
+            <div className="space-y-1">{visibleStudents.map((student) => <button key={student.id} onClick={() => setSelectedId(student.id)} className={`w-full rounded-lg p-3 text-left ${selected?.id === student.id ? "bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300" : "hover:bg-gray-50 dark:hover:bg-gray-700"}`}><span className="block font-semibold">{student.name}</span><span className="text-xs text-gray-500">{student.studentCode} · Semestre {student.semester}</span></button>)}{!visibleStudents.length && <p className="px-2 py-4 text-sm text-gray-500">No hay estudiantes matriculados en este curso.</p>}</div>
           </aside>
 
           {selected ? <section className="space-y-6">

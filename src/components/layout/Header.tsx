@@ -151,7 +151,7 @@ export function Header({ onToggleSidebar }: { onToggleSidebar: () => void }) {
         onClick={onToggleSidebar}
         aria-label="Mostrar u ocultar menú de navegación"
         title="Mostrar u ocultar menú de navegación"
-        className="shrink-0 rounded-lg p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-white"
+        className="shrink-0 rounded-lg p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-white lg:hidden"
       >
         <Menu className="h-5 w-5" />
       </button>

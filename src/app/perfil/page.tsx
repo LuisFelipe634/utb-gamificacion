@@ -31,13 +31,8 @@ export default function ProfilePage() {
     <div className="mx-auto max-w-5xl space-y-6">
       <header className="rounded-2xl bg-gradient-to-r from-blue-600 to-cyan-500 p-6 text-white sm:p-8"><div className="flex flex-wrap items-center gap-4"><div className="flex h-16 w-16 items-center justify-center rounded-full bg-white/20"><UserRound className="h-8 w-8" /></div><div><p className="text-sm text-blue-100">PERFIL DEL ESTUDIANTE</p><h1 className="text-3xl font-bold">{data.user.name}</h1><p className="text-blue-100">{data.user.email} · {data.profile.studentCode}</p></div></div></header>
 
-      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {[{ label: "Puntos acumulados", value: data.stats.totalPoints.toLocaleString(), icon: TrendingUp }, { label: "Insignias obtenidas", value: data.stats.badgesCount, icon: Award }, { label: "Semestre actual", value: data.profile.currentSemester, icon: BookOpen }, { label: "Misiones completadas", value: data.stats.completedMissionsCount, icon: Target }].map(({ label, value, icon: Icon }) => <div key={label} className="rounded-xl border border-gray-200 bg-white p-5 dark:border-gray-700 dark:bg-gray-800"><Icon className="mb-3 h-5 w-5 text-blue-600" /><p className="text-sm text-gray-500">{label}</p><p className="text-3xl font-bold text-gray-900 dark:text-white">{value}</p></div>)}
-      </section>
-
-      <section className="flex items-center justify-between rounded-xl border border-orange-200 bg-orange-50 p-5 dark:border-orange-900 dark:bg-orange-900/20">
-        <div><p className="text-sm font-semibold text-orange-800 dark:text-orange-200">Racha académica</p><p className="mt-1 text-3xl font-bold text-orange-900 dark:text-orange-100">{data.stats.streak.current} días</p><p className="text-sm text-orange-700 dark:text-orange-300">Mejor racha: {data.stats.streak.best} días</p></div>
-        <Flame className="h-10 w-10 text-orange-600 dark:text-orange-400" />
+      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+        {[{ label: "Puntos acumulados", value: data.stats.totalPoints.toLocaleString(), icon: TrendingUp, color: "text-blue-600" }, { label: "Insignias obtenidas", value: data.stats.badgesCount, icon: Award, color: "text-blue-600" }, { label: "Semestre actual", value: data.profile.currentSemester, icon: BookOpen, color: "text-blue-600" }, { label: "Misiones completadas", value: data.stats.completedMissionsCount, icon: Target, color: "text-blue-600" }, { label: "Racha académica", value: `${data.stats.streak.current} días`, icon: Flame, color: "text-orange-600" }].map(({ label, value, icon: Icon, color }) => <div key={label} className="rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800"><Icon className={`mb-2 h-5 w-5 ${color}`} /><p className="text-sm text-gray-500">{label}</p><p className="text-2xl font-bold text-gray-900 dark:text-white">{value}</p><p className="mt-1 text-xs text-gray-500">{label === "Racha académica" ? `Mejor: ${data.stats.streak.best} días` : " "}</p></div>)}
       </section>
 
       <div className="grid gap-6 lg:grid-cols-[1.2fr_1fr]">

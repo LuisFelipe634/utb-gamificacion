@@ -192,15 +192,32 @@ export default function MallaCurricular() {
         </p>
       </div>
 
-      {curriculum && (
-        <div className={`rounded-xl border p-5 ${selectedCredits === 18 ? "border-amber-300 bg-amber-50 dark:border-amber-800 dark:bg-amber-900/20" : "border-blue-200 bg-blue-50 dark:border-blue-900 dark:bg-blue-900/20"}`}>
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div><p className="font-semibold text-gray-900 dark:text-white">Planifica tu semestre</p><p className="text-sm text-gray-600 dark:text-gray-300">Selecciona materias disponibles. El máximo permitido es de 18 créditos.</p></div>
-            <span className="text-2xl font-bold text-blue-700 dark:text-blue-300">{selectedCredits}/18 <span className="text-sm font-normal">créditos</span></span>
+      <div className="rounded-xl border border-slate-200 bg-white p-5 dark:border-gray-700 dark:bg-gray-800">
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-blue-600 dark:text-blue-400">Plan actual{period && ` · ${period}`}</p>
+            <h2 className="mt-1 text-xl font-bold text-slate-900 dark:text-white">Semestre {currentSemester || "-"}</h2>
           </div>
-          {selectionError && <p className="mt-3 text-sm font-medium text-red-600">{selectionError}</p>}
+          <span className="rounded-full bg-blue-50 px-3 py-2 text-sm font-semibold text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">{selectedCredits} / 18 créditos seleccionados</span>
         </div>
-      )}
+        <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {displayedCurriculum.find((semester) => semester.semester === currentSemester)?.courses
+            .filter((course) => course.status === "in_progress" || course.selected)
+            .slice(0, 4)
+            .map((course) => (
+              <div key={course.code} className="rounded-lg border border-slate-100 bg-slate-50 p-3 dark:border-gray-700 dark:bg-gray-700/60">
+                <p className="font-mono text-[11px] text-slate-400">{course.code}</p>
+                <p className="mt-1 font-semibold text-slate-900 dark:text-white">{course.name}</p>
+                <p className="mt-2 text-xs text-slate-500">{course.credits} créditos</p>
+              </div>
+            ))}
+          {!displayedCurriculum.find((semester) => semester.semester === currentSemester)?.courses.some((course) => course.status === "in_progress" || course.selected) && (
+            <p className="text-sm text-slate-500 dark:text-gray-400">No hay materias seleccionadas o en curso para este semestre.</p>
+          )}
+        </div>
+      </div>
+
+      {selectionError && <p className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm font-medium text-red-600 dark:border-red-900 dark:bg-red-900/20">{selectionError}</p>}
 
       {/* Summary */}
       <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
