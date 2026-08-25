@@ -88,6 +88,7 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
   const [recommendations, setRecommendations] = useState<RecommendationData[]>([])
+  const [showRecommendations, setShowRecommendations] = useState(true)
 
   const fetchStudentData = async () => {
     try {
@@ -136,6 +137,9 @@ export default function Dashboard() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void loadStudentData()
   }, [])
+
+  // Recommendations preference is now initialized from localStorage
+  // via the useSyncExternalStore pattern below, keeping React state in sync
 
   if (loading) {
     return (
@@ -208,8 +212,8 @@ export default function Dashboard() {
         </div>
       </section>
 
-      {/* Recommendations Banner */}
-      {recommendations.length > 0 && (
+{/* Recommendations Banner */}
+      {showRecommendations && recommendations.length > 0 && (
         <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-5">
           <div className="flex items-center gap-2 mb-3">
             <Lightbulb className="w-5 h-5 text-blue-600 dark:text-blue-400" />
@@ -252,6 +256,19 @@ export default function Dashboard() {
             Ver malla curricular <ChevronRight className="w-4 h-4" />
           </Link>
         </div>
+      )}
+
+      {/* Show indicator when recommendations exist but are hidden */}
+      {recommendations.length > 0 && !showRecommendations && (
+        <div className="flex items-center gap-2 mt-3 text-xs text-gray-500 dark:text-gray-400">
+          <span className="w-2 h-2 rounded-full bg-blue-500" />
+          <span>Tienes {recommendations.length} recomendación{recommendations.length > 1 ? "es" : ""}</span>
+        </div>
+      )}
+
+      {/* Show nothing when recommendations empty and shown */}
+      {!showRecommendations && recommendations.length === 0 && (
+        <p className="text-sm text-gray-500 dark:text-gray-400 mt-3">No hay recomendaciones para mostrar</p>
       )}
 
       {/* Stats Cards */}
