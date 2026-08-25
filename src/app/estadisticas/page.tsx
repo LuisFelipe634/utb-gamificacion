@@ -8,7 +8,6 @@ import {
   Target,
   Clock,
   Award,
-  BarChart3,
   Loader2
 } from "lucide-react"
 
@@ -55,26 +54,29 @@ interface StatsData {
   }>
 }
 
+export async function fetchStatsData(
+  setStats: React.Dispatch<React.SetStateAction<StatsData | null>>,
+  setLoading: React.Dispatch<React.SetStateAction<boolean>>
+) {
+  try {
+    const response = await fetch("/api/stats")
+    if (!response.ok) throw new Error("Error al cargar estadísticas")
+    const data = (await response.json()) as StatsData
+    setStats(data)
+  } catch (error) {
+    console.error("Error:", error)
+  } finally {
+    setLoading(false)
+  }
+}
+
 export default function Estadisticas() {
   const [stats, setStats] = useState<StatsData | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    fetchStats()
+    fetchStatsData(setStats, setLoading)
   }, [])
-
-  const fetchStats = async () => {
-    try {
-      const response = await fetch("/api/stats")
-      if (!response.ok) throw new Error("Error al cargar estadísticas")
-      const data = await response.json()
-      setStats(data)
-    } catch (error) {
-      console.error("Error:", error)
-    } finally {
-      setLoading(false)
-    }
-  }
 
   if (loading) {
     return (
@@ -90,7 +92,7 @@ export default function Estadisticas() {
       <div className="text-center py-12">
         <p className="text-gray-500 dark:text-gray-400">Error al cargar las estadísticas</p>
         <button
-          onClick={fetchStats}
+          onClick={() => fetchStatsData(setStats, setLoading)}
           className="mt-4 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
         >
           Reintentar
@@ -340,7 +342,7 @@ export default function Estadisticas() {
             <p className="text-sm text-gray-500 dark:text-gray-400">Puntos Totales</p>
           </div>
           <div className="text-center p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-            <Trophy className="w-8 h-8 text-yellow-600 dark:text-yellow-400 mx-auto mb-2" />
+            <Trophy className="w-8 h-8 text-yellow-600 dark:text-yellow-600 mx-auto mb-2" />
             <p className="text-2xl font-bold text-gray-900 dark:text-white">
               {stats.achievements.earnedBadges}
             </p>

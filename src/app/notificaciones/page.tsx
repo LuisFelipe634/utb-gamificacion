@@ -8,7 +8,6 @@ import {
   Trophy,
   Target,
   Clock,
-  CheckCircle,
   X,
   Loader2
 } from "lucide-react"
@@ -32,6 +31,22 @@ const typeConfig: Record<string, { icon: React.ComponentType<{ className?: strin
   RECORDATORIO: { icon: Clock, color: "text-blue-600 dark:text-blue-400", bg: "bg-blue-50 dark:bg-blue-900/20" }
 }
 
+export async function fetchNotificationsData(
+  setNotifications: React.Dispatch<React.SetStateAction<Notification[]>>,
+  setLoading: React.Dispatch<React.SetStateAction<boolean>>
+) {
+  try {
+    const response = await fetch("/api/notifications")
+    if (!response.ok) throw new Error("Error al cargar notificaciones")
+    const data = (await response.json()) as { notifications: Notification[] }
+    setNotifications(data.notifications)
+  } catch (error) {
+    console.error("Error:", error)
+  } finally {
+    setLoading(false)
+  }
+}
+
 export default function Notificaciones() {
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [filter, setFilter] = useState<string>("all")
@@ -39,21 +54,8 @@ export default function Notificaciones() {
   const [actionLoading, setActionLoading] = useState<string | null>(null)
 
   useEffect(() => {
-    fetchNotifications()
+    fetchNotificationsData(setNotifications, setLoading)
   }, [])
-
-  const fetchNotifications = async () => {
-    try {
-      const response = await fetch("/api/notifications")
-      if (!response.ok) throw new Error("Error al cargar notificaciones")
-      const data = await response.json()
-      setNotifications(data.notifications)
-    } catch (error) {
-      console.error("Error:", error)
-    } finally {
-      setLoading(false)
-    }
-  }
 
   const unreadCount = notifications.filter((n) => !n.isRead).length
 
