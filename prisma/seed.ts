@@ -10,6 +10,7 @@ const prisma = new PrismaClient({ adapter })
 
 async function main() {
   console.log('🌱 Iniciando seed de la base de datos...')
+  const currentPeriod = `${new Date().getFullYear()}-${new Date().getMonth() < 6 ? 1 : 2}`
 
   // Limpiar datos existentes (si los hay)
   console.log('🧹 Limpiando datos existentes...')
@@ -324,9 +325,9 @@ async function main() {
         create: {
           studentCode: '2020123456',
           programId: program.id,
-          currentSemester: 6,
+          currentSemester: 8,
           admissionYear: 2019,
-          totalCredits: 95,
+          totalCredits: 113,
           averageGrade: 4.0,
           level: 5
         }
@@ -335,6 +336,34 @@ async function main() {
   })
 
   console.log('✅ Segundo estudiante creado:', secondStudent.email)
+
+  const saraProfile = await prisma.studentProfile.findUnique({
+    where: { userId: secondStudent.id },
+  })
+  const saraCourses = await prisma.course.findMany({
+    where: { programId: program.id },
+    include: { semester: true },
+    orderBy: { semester: { number: 'asc' } },
+  })
+
+  if (saraProfile) {
+    for (const course of saraCourses) {
+      const semesterNumber = course.semester.number
+      if (semesterNumber > 8) continue
+
+      await prisma.enrollment.create({
+        data: {
+          studentId: saraProfile.id,
+          courseId: course.id,
+          semesterCode: semesterNumber < 8 ? `${2018 + semesterNumber}-1` : currentPeriod,
+          status: semesterNumber < 8 ? 'APROBADO' : 'CURSANDO',
+          grade: semesterNumber < 8 ? 4.0 : null,
+        },
+      })
+    }
+
+    console.log('✅ Sara Peña configurada: semestres 1-7 aprobados y semestre 8 en curso')
+  }
 
   // nuevo usuario juanito alcachofa
   const juanitoStudent = await prisma.user.create({
@@ -402,6 +431,11 @@ async function main() {
     for (const student of demoStudents) {
       if (!student) continue
       for (const course of assignedCourses) {
+        const existingEnrollment = await prisma.enrollment.findFirst({
+          where: { studentId: student.id, courseId: course.id },
+        })
+        if (existingEnrollment) continue
+
         await prisma.enrollment.create({
           data: {
             studentId: student.id,
