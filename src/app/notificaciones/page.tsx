@@ -186,7 +186,7 @@ export default function Notificaciones() {
           return (
             <div
               key={notification.id}
-              className={`bg-white dark:bg-gray-800 rounded-xl border p-4 transition-all ${
+              className={`bg-white dark:bg-gray-800 rounded-xl shadow-xs border p-4 transition-all ${
                 notification.isRead
                   ? "border-gray-200 dark:border-gray-700"
                   : "border-blue-300 dark:border-blue-600 shadow-sm"

@@ -192,7 +192,7 @@ export default function MallaCurricular() {
         </p>
       </div>
 
-      <div className="rounded-xl border border-slate-200 bg-white p-5 dark:border-gray-700 dark:bg-gray-800">
+      <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-xs dark:border-gray-700 dark:bg-gray-800">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-blue-600 dark:text-blue-400">Plan actual{period && ` · ${period}`}</p>
@@ -220,7 +220,7 @@ export default function MallaCurricular() {
       {selectionError && <p className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm font-medium text-red-600 dark:border-red-900 dark:bg-red-900/20">{selectionError}</p>}
 
       {/* Summary */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xs p-6 border border-gray-200 dark:border-gray-700">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center">
@@ -259,7 +259,7 @@ export default function MallaCurricular() {
           return (
             <div
               key={semester.semester}
-              className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden"
+              className="bg-white dark:bg-gray-800 rounded-xl shadow-xs border border-gray-200 dark:border-gray-700 overflow-hidden"
             >
               {/* Semester Header */}
               <button

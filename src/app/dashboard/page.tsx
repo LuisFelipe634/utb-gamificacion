@@ -89,7 +89,7 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
   const [recommendations, setRecommendations] = useState<RecommendationData[]>([])
-  const [showRecommendations, setShowRecommendations] = useState(true)
+  const [showRecommendations, setShowRecommendations] = useState(false)
 
   const toggleRecommendations = () => setShowRecommendations((prev) => !prev)
 
@@ -140,9 +140,6 @@ export default function Dashboard() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void loadStudentData()
   }, [])
-
-  // Recommendations preference is now initialized from localStorage
-  // via the useSyncExternalStore pattern below, keeping React state in sync
 
   if (loading) {
     return (
@@ -202,7 +199,7 @@ export default function Dashboard() {
   const alerts = data.notifications.slice(0, 3)
   return (
     <div className="mx-auto max-w-7xl space-y-6">
-      <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-gray-700 dark:bg-gray-800">
+      <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xs dark:border-gray-700 dark:bg-gray-800">
         <div className="grid lg:grid-cols-[220px_1fr]">
           <div className="p-6 sm:p-8 lg:col-span-2">
             <div className="flex flex-wrap items-start justify-between gap-4">
@@ -281,7 +278,7 @@ export default function Dashboard() {
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
         {/* Nivel */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl p-5 border border-gray-200 dark:border-gray-700">
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xs p-5 border border-gray-200 dark:border-gray-700">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-500 dark:text-gray-400">Nivel</p>
@@ -299,7 +296,7 @@ export default function Dashboard() {
         </div>
 
         {/* Puntos */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl p-5 border border-gray-200 dark:border-gray-700">
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xs p-5 border border-gray-200 dark:border-gray-700">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-500 dark:text-gray-400">Puntos</p>
@@ -319,7 +316,7 @@ export default function Dashboard() {
         </div>
 
         {/* Promedio */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl p-5 border border-gray-200 dark:border-gray-700">
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xs p-5 border border-gray-200 dark:border-gray-700">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-500 dark:text-gray-400">Promedio</p>
@@ -334,7 +331,7 @@ export default function Dashboard() {
         </div>
 
         {/* Semestre */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl p-5 border border-gray-200 dark:border-gray-700">
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xs p-5 border border-gray-200 dark:border-gray-700">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-500 dark:text-gray-400">Semestre</p>
@@ -349,7 +346,7 @@ export default function Dashboard() {
         </div>
 
         {/* Racha */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl p-5 border border-gray-200 dark:border-gray-700">
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xs p-5 border border-gray-200 dark:border-gray-700">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-500 dark:text-gray-400">Racha académica</p>
@@ -365,7 +362,7 @@ export default function Dashboard() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Active Missions */}
-        <div className="lg:col-span-2 bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
+        <div className="lg:col-span-2 bg-white dark:bg-gray-800 rounded-xl shadow-xs p-6 border border-gray-200 dark:border-gray-700">
           <div className="flex items-center justify-between mb-4">
             <h2 className="font-semibold text-gray-900 dark:text-white">Misiones Activas</h2>
             <Link
@@ -419,7 +416,7 @@ export default function Dashboard() {
         {/* Badges & Alerts */}
         <div className="space-y-6">
           {/* Recent Badges */}
-          <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xs p-6 border border-gray-200 dark:border-gray-700">
             <div className="flex items-center justify-between mb-4">
               <h2 className="font-semibold text-gray-900 dark:text-white">Logros Recientes</h2>
               <Link
@@ -459,7 +456,7 @@ export default function Dashboard() {
           </div>
 
           {/* Alerts */}
-          <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xs p-6 border border-gray-200 dark:border-gray-700">
             <div className="flex items-center justify-between mb-4">
               <h2 className="font-semibold text-gray-900 dark:text-white">Notificaciones</h2>
               <Link

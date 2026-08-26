@@ -121,7 +121,7 @@ export default function Estadisticas() {
 
       {/* Main Stats */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white dark:bg-gray-800 rounded-xl p-5 border border-gray-200 dark:border-gray-700">
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xs p-5 border border-gray-200 dark:border-gray-700">
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-xl flex items-center justify-center">
               <BookOpen className="w-6 h-6 text-blue-600 dark:text-blue-400" />
@@ -142,7 +142,7 @@ export default function Estadisticas() {
           <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{creditProgress}% completado</p>
         </div>
 
-        <div className="bg-white dark:bg-gray-800 rounded-xl p-5 border border-gray-200 dark:border-gray-700">
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xs p-5 border border-gray-200 dark:border-gray-700">
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 bg-green-100 dark:bg-green-900/30 rounded-xl flex items-center justify-center">
               <TrendingUp className="w-6 h-6 text-green-600 dark:text-green-400" />
@@ -159,7 +159,7 @@ export default function Estadisticas() {
           </p>
         </div>
 
-        <div className="bg-white dark:bg-gray-800 rounded-xl p-5 border border-gray-200 dark:border-gray-700">
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xs p-5 border border-gray-200 dark:border-gray-700">
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900/30 rounded-xl flex items-center justify-center">
               <Award className="w-6 h-6 text-purple-600 dark:text-purple-400" />
@@ -186,7 +186,7 @@ export default function Estadisticas() {
           </p>
         </div>
 
-        <div className="bg-white dark:bg-gray-800 rounded-xl p-5 border border-gray-200 dark:border-gray-700">
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xs p-5 border border-gray-200 dark:border-gray-700">
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 bg-yellow-100 dark:bg-yellow-900/30 rounded-xl flex items-center justify-center">
               <Trophy className="w-6 h-6 text-yellow-600 dark:text-yellow-400" />
@@ -207,7 +207,7 @@ export default function Estadisticas() {
       {/* Charts Row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Progress by Category */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xs p-6 border border-gray-200 dark:border-gray-700">
           <h2 className="font-semibold text-gray-900 dark:text-white mb-4">
             Progreso por Categoría
           </h2>
@@ -232,7 +232,7 @@ export default function Estadisticas() {
         </div>
 
         {/* Course Progress */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xs p-6 border border-gray-200 dark:border-gray-700">
           <h2 className="font-semibold text-gray-900 dark:text-white mb-4">
             Avance de Cursos
           </h2>
@@ -280,7 +280,7 @@ export default function Estadisticas() {
       </div>
 
       {/* Semester Progress */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xs p-6 border border-gray-200 dark:border-gray-700">
         <h2 className="font-semibold text-gray-900 dark:text-white mb-4">
           Progreso por Semestre
         </h2>
@@ -306,7 +306,7 @@ export default function Estadisticas() {
       </div>
 
       {/* Points by Source */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xs p-6 border border-gray-200 dark:border-gray-700">
         <h2 className="font-semibold text-gray-900 dark:text-white mb-4">
           Puntos por Fuente
         </h2>
@@ -329,7 +329,7 @@ export default function Estadisticas() {
       </div>
 
       {/* Achievements Summary */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xs p-6 border border-gray-200 dark:border-gray-700">
         <h2 className="font-semibold text-gray-900 dark:text-white mb-4">
           Resumen de Logros
         </h2>

@@ -98,7 +98,7 @@ export default function Logros() {
 
       {/* Stats */}
       {stats && (
-        <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xs p-6 border border-gray-200 dark:border-gray-700">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <div className="w-16 h-16 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-2xl flex items-center justify-center">
@@ -182,7 +182,7 @@ export default function Logros() {
           return (
             <div
               key={badge.id}
-              className={`bg-white dark:bg-gray-800 rounded-xl border p-5 transition-all hover:shadow-lg ${
+              className={`bg-white dark:bg-gray-800 rounded-xl shadow-xs border p-5 transition-all hover:shadow-lg ${
                 badge.earned
                   ? "border-yellow-300 dark:border-yellow-600"
                   : "border-gray-200 dark:border-gray-700 opacity-75"
