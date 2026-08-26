@@ -7,7 +7,6 @@ import {
   BookOpen,
   Trophy,
   Target,
-  Bell,
   BarChart3,
   Users,
   UserRound
@@ -20,7 +19,6 @@ const navigation = [
   { name: "Plan de estudios", href: "/malla", icon: BookOpen },
   { name: "Logros académicos", href: "/logros", icon: Trophy },
   { name: "Misiones & desafíos", href: "/misiones", icon: Target },
-  { name: "Notificaciones", href: "/notificaciones", icon: Bell },
   { name: "Estadísticas", href: "/estadisticas", icon: BarChart3 },
 ]
 
