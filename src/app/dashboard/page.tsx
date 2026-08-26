@@ -11,6 +11,7 @@ import {
   Bell,
   ChevronRight,
   Flame,
+  ChevronDown,
   Loader2,
   Lightbulb,
   X
@@ -89,6 +90,8 @@ export default function Dashboard() {
   const [error, setError] = useState("")
   const [recommendations, setRecommendations] = useState<RecommendationData[]>([])
   const [showRecommendations, setShowRecommendations] = useState(true)
+
+  const toggleRecommendations = () => setShowRecommendations((prev) => !prev)
 
   const fetchStudentData = async () => {
     try {
@@ -212,63 +215,67 @@ export default function Dashboard() {
         </div>
       </section>
 
-{/* Recommendations Banner */}
-      {showRecommendations && recommendations.length > 0 && (
-        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-5">
-          <div className="flex items-center gap-2 mb-3">
-            <Lightbulb className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-            <h2 className="font-semibold text-gray-900 dark:text-white">Recomendaciones para ti</h2>
-          </div>
-          <div className="space-y-3">
-            {recommendations.map((rec) => (
-              <div
-                key={rec.id}
-                className={`flex items-start gap-3 p-3 rounded-lg border transition-all ${
-                  rec.priority === 1
-                    ? "bg-orange-50 dark:bg-orange-900/15 border-orange-200 dark:border-orange-800"
-                    : rec.priority === 2
-                    ? "bg-white dark:bg-gray-800/60 border-gray-200 dark:border-gray-700"
-                    : "bg-green-50 dark:bg-green-900/15 border-green-200 dark:border-green-800"
-                }`}
-              >
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium text-sm text-gray-900 dark:text-white">
-                    {rec.title}
-                  </p>
-                  <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
-                    {rec.description}
-                  </p>
-                </div>
-                <button
-                  onClick={() => dismissRecommendation(rec.id)}
-                  className="flex-shrink-0 p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                  title="Descartar"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-            ))}
-          </div>
-          <Link
-            href="/malla"
-            className="inline-flex items-center gap-1 mt-3 text-sm text-blue-600 dark:text-blue-400 hover:underline font-medium"
+{/* Recommendations Section (collapsible, same pattern as semesters in malla) */}
+      {recommendations.length > 0 && (
+        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border border-blue-200 dark:border-blue-800 rounded-xl overflow-hidden">
+          <button
+            onClick={toggleRecommendations}
+            className="w-full flex items-center justify-between p-5 hover:bg-blue-100/60 dark:hover:bg-blue-900/30 transition-colors"
           >
-            Ver malla curricular <ChevronRight className="w-4 h-4" />
-          </Link>
-        </div>
-      )}
+            <div className="flex items-center gap-2">
+              <Lightbulb className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+              <h2 className="font-semibold text-gray-900 dark:text-white">Recomendaciones para ti</h2>
+              <span className="flex items-center gap-1.5 rounded-full bg-blue-100 dark:bg-blue-900/40 px-2 py-0.5 text-xs font-medium text-blue-700 dark:text-blue-300">
+                <span className="w-2 h-2 rounded-full bg-blue-500" />
+                {recommendations.length} activa{recommendations.length > 1 ? "s" : ""}
+              </span>
+            </div>
+            {showRecommendations ? (
+              <ChevronDown className="w-5 h-5 text-gray-400" />
+            ) : (
+              <ChevronRight className="w-5 h-5 text-gray-400" />
+            )}
+          </button>
 
-      {/* Show indicator when recommendations exist but are hidden */}
-      {recommendations.length > 0 && !showRecommendations && (
-        <div className="flex items-center gap-2 mt-3 text-xs text-gray-500 dark:text-gray-400">
-          <span className="w-2 h-2 rounded-full bg-blue-500" />
-          <span>Tienes {recommendations.length} recomendación{recommendations.length > 1 ? "es" : ""}</span>
+          {showRecommendations && (
+            <div className="px-5 pb-5 space-y-3">
+              {recommendations.map((rec) => (
+                <div
+                  key={rec.id}
+                  className={`flex items-start gap-3 p-3 rounded-lg border transition-all ${
+                    rec.priority === 1
+                      ? "bg-orange-50 dark:bg-orange-900/15 border-orange-200 dark:border-orange-800"
+                      : rec.priority === 2
+                      ? "bg-white dark:bg-gray-800/60 border-gray-200 dark:border-gray-700"
+                      : "bg-green-50 dark:bg-green-900/15 border-green-200 dark:border-green-800"
+                  }`}
+                >
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-sm text-gray-900 dark:text-white">
+                      {rec.title}
+                    </p>
+                    <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                      {rec.description}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => dismissRecommendation(rec.id)}
+                    className="flex-shrink-0 p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                    title="Descartar"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              ))}
+              <Link
+                href="/malla"
+                className="inline-flex items-center gap-1 text-sm text-blue-600 dark:text-blue-400 hover:underline font-medium"
+              >
+                Ver malla curricular <ChevronRight className="w-4 h-4" />
+              </Link>
+            </div>
+          )}
         </div>
-      )}
-
-      {/* Show nothing when recommendations empty and shown */}
-      {!showRecommendations && recommendations.length === 0 && (
-        <p className="text-sm text-gray-500 dark:text-gray-400 mt-3">No hay recomendaciones para mostrar</p>
       )}
 
       {/* Stats Cards */}
