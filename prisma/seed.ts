@@ -413,7 +413,8 @@ async function main() {
     where: { userId: teacherUser.id }
   })
   const assignedCourses = await prisma.course.findMany({
-    where: { code: { in: ['H01A', 'M01A', 'C02A'] } }
+    where: { code: { in: ['H01A', 'M01A', 'C02A'] } },
+    orderBy: { code: 'asc' }
   })
 
   if (teacherProfile) {
@@ -422,29 +423,40 @@ async function main() {
         data: {
           teacherId: teacherProfile.id,
           courseId: course.id,
-          period: '2026-1'
+          period: currentPeriod
         }
       })
     }
 
-    const demoStudents = [demoProfile, await prisma.studentProfile.findUnique({ where: { userId: secondStudent.id } }), await prisma.studentProfile.findUnique({ where: { userId: juanitoStudent.id } })]
-    for (const student of demoStudents) {
+    // Matrícula vigente y distribuida por curso (solo CURSANDO en periodo actual)
+    // Cada estudiante queda ligado solo a una materia, para que el filtro por materia sea visible
+    const saraProfileForTeacher = await prisma.studentProfile.findUnique({ where: { userId: secondStudent.id } })
+    const juanitoProfileForTeacher = await prisma.studentProfile.findUnique({ where: { userId: juanitoStudent.id } })
+    const courseByCode = new Map(assignedCourses.map((c) => [c.code, c]))
+    const enrollmentsByCourse: Array<{ code: string; student: typeof demoProfile | null }> = [
+      { code: 'H01A', student: demoProfile }, // H01A -> Juan Pérez
+      { code: 'M01A', student: saraProfileForTeacher }, // M01A -> Sara Peña
+      { code: 'C02A', student: juanitoProfileForTeacher }, // C02A -> Juanito Alcachofa
+      // Juan Pérez también en C02A para probar que un estudiante puede estar en más de una materia pero no en todas
+      { code: 'C02A', student: demoProfile },
+    ]
+    for (const { code, student } of enrollmentsByCourse) {
       if (!student) continue
-      for (const course of assignedCourses) {
-        const existingEnrollment = await prisma.enrollment.findFirst({
-          where: { studentId: student.id, courseId: course.id },
-        })
-        if (existingEnrollment) continue
+      const course = courseByCode.get(code)
+      if (!course) continue
+      const existingEnrollment = await prisma.enrollment.findFirst({
+        where: { studentId: student.id, courseId: course.id, semesterCode: currentPeriod },
+      })
+      if (existingEnrollment) continue
 
-        await prisma.enrollment.create({
-          data: {
-            studentId: student.id,
-            courseId: course.id,
-            semesterCode: '2026-1',
-            status: 'CURSANDO'
-          }
-        })
-      }
+      await prisma.enrollment.create({
+        data: {
+          studentId: student.id,
+          courseId: course.id,
+          semesterCode: currentPeriod,
+          status: 'CURSANDO'
+        }
+      })
     }
   }
 

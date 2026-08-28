@@ -84,11 +84,11 @@ export function Sidebar({ isOpen, onClose }: { isOpen: boolean; onClose: () => v
           </div>
         )}
         <Link
-          href="/perfil"
+          href={isTeacher ? "/perfil-docente" : "/perfil"}
           className="mt-2 w-full rounded-lg px-4 py-1.5 text-sm font-medium text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900 transition-colors"
-          aria-label="Mi perfil"
+          aria-label={isTeacher ? "Mi perfil docente" : "Mi perfil"}
         >
-          Mi perfil
+          {isTeacher ? "Mi perfil docente" : "Mi perfil"}
         </Link>
       </div>
 

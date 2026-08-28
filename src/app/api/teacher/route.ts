@@ -28,13 +28,20 @@ export async function GET() {
     })
     const assignedCourses = teacher?.teacherProfile?.assignedCourses || []
     const assignedCourseIds = assignedCourses.map((assignment) => assignment.courseId)
+    const assignedPeriods = [...new Set(assignedCourses.map((assignment) => assignment.period))]
 
     const students = await prisma.user.findMany({
       where: {
         role: "STUDENT",
         studentProfile: {
           is: {
-            enrollments: { some: { courseId: { in: assignedCourseIds } } }
+            enrollments: {
+              some: {
+                courseId: { in: assignedCourseIds },
+                status: { in: ["CURSANDO", "INSCRITO"] as const },
+                ...(assignedPeriods.length ? { semesterCode: { in: assignedPeriods } } : {}),
+              },
+            },
           }
         }
       },
@@ -96,7 +103,7 @@ export async function GET() {
         streak: calculateStreak(streakActivities.filter((activity) => activity.userId === student.id)),
         risk: academicRisk,
         pendingMissions: student.missions.map(({ id, mission, evidence, completedAt, status }) => ({ id, title: mission.title, description: mission.description, points: mission.pointsReward, evidence, completedAt, status }))
-        ,assignedCourseIds: profile.enrollments.filter((enrollment) => assignedCourseIds.includes(enrollment.courseId)).map((enrollment) => enrollment.courseId)
+        ,assignedCourseIds: profile.enrollments.filter((enrollment) => assignedCourseIds.includes(enrollment.courseId) && ["CURSANDO","INSCRITO"].includes(enrollment.status) && (assignedPeriods.length === 0 || assignedPeriods.includes(enrollment.semesterCode))).map((enrollment) => enrollment.courseId)
       }]
     })
 

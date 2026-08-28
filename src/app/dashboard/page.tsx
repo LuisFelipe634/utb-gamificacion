@@ -14,6 +14,7 @@ import {
   ChevronDown,
   Loader2,
   Lightbulb,
+  Send,
   X
 } from "lucide-react"
 import Link from "next/link"
@@ -90,6 +91,7 @@ export default function Dashboard() {
   const [error, setError] = useState("")
   const [recommendations, setRecommendations] = useState<RecommendationData[]>([])
   const [showRecommendations, setShowRecommendations] = useState(false)
+  const [dismissedUrgentIds, setDismissedUrgentIds] = useState<Set<string>>(new Set())
 
   const toggleRecommendations = () => setShowRecommendations((prev) => !prev)
 
@@ -128,6 +130,22 @@ export default function Dashboard() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ recommendationId: id }),
       })
+    } catch {
+      // Silently fail
+    }
+  }
+
+  const dismissUrgentNotification = async (notificationId: string) => {
+    setDismissedUrgentIds((prev) => new Set(prev).add(notificationId))
+    // Marcar como leída en backend para que no reaparezca
+    try {
+      await fetch("/api/notifications", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ notificationId, isRead: true }),
+      })
+      // Actualizar estado local para que desaparezca del listado también
+      setData((prev) => prev ? { ...prev, notifications: prev.notifications.map((n) => n.id === notificationId ? { ...n, isRead: true } : n) } : prev)
     } catch {
       // Silently fail
     }
@@ -197,6 +215,12 @@ export default function Dashboard() {
 
   // Obtener no leídas para alertas
   const alerts = data.notifications.slice(0, 3)
+
+  // Notificaciones urgentes de ruta recomendada del docente (recuadro flotante)
+  const urgentRouteNotifications = data.notifications.filter(
+    (n) => !n.isRead && !dismissedUrgentIds.has(n.id) && n.title.includes("Ruta recomendada")
+  )
+
   return (
     <div className="mx-auto max-w-7xl space-y-6">
       <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xs dark:border-gray-700 dark:bg-gray-800">
@@ -513,6 +537,66 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
+
+      {/* Recuadro flotante - Ruta recomendada urgente del docente */}
+      {urgentRouteNotifications.length > 0 && (
+        <div className="fixed bottom-6 right-6 z-50 w-[calc(100%-24px)] max-w-md animate-in slide-in-from-bottom-2">
+          {urgentRouteNotifications.slice(0, 1).map((urgent) => (
+            <div
+              key={urgent.id}
+              className="rounded-2xl border-2 border-red-300 bg-white shadow-2xl dark:border-red-800 dark:bg-gray-800 overflow-hidden"
+              role="alert"
+              aria-live="assertive"
+            >
+              <div className="bg-gradient-to-r from-red-600 to-orange-500 px-4 py-3 flex items-center justify-between">
+                <div className="flex items-center gap-2 text-white">
+                  <span className="flex h-8 w-8 items-center justify-center rounded-full bg-white/20">
+                    <Send className="h-4 w-4" />
+                  </span>
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-widest text-white/90">Notificación urgente</p>
+                    <p className="text-sm font-bold leading-none">De tu docente</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => dismissUrgentNotification(urgent.id)}
+                  className="rounded-full p-1.5 text-white/80 hover:bg-white/20 hover:text-white transition-colors"
+                  aria-label="Cerrar notificación urgente"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+              <div className="p-5">
+                <h3 className="flex items-center gap-2 text-base font-bold text-gray-900 dark:text-white">
+                  <AlertTriangle className="h-5 w-5 text-red-600 dark:text-red-400 shrink-0" />
+                  {urgent.title}
+                </h3>
+                <p className="mt-2 text-sm leading-relaxed text-gray-600 dark:text-gray-300 line-clamp-4">
+                  {urgent.message}
+                </p>
+                <div className="mt-4 flex gap-2">
+                  <Link
+                    href="/malla"
+                    onClick={() => dismissUrgentNotification(urgent.id)}
+                    className="flex-1 inline-flex items-center justify-center gap-2 rounded-lg bg-red-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-red-700 transition-colors"
+                  >
+                    Ver malla curricular <ChevronRight className="h-4 w-4" />
+                  </Link>
+                  <button
+                    onClick={() => dismissUrgentNotification(urgent.id)}
+                    className="rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700 transition-colors"
+                  >
+                    Entendido
+                  </button>
+                </div>
+                <p className="mt-3 text-center text-xs text-gray-400">
+                  {new Date(urgent.createdAt).toLocaleString("es-ES", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
+                </p>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }

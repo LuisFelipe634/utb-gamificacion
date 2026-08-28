@@ -179,6 +179,7 @@ export default function Notificaciones() {
       {/* Notifications List */}
       <div className="space-y-3">
         {filteredNotifications.map((notification) => {
+          const isUrgentRoute = notification.title.includes("Ruta recomendada")
           const config = typeConfig[notification.type] || typeConfig.INFO
           const Icon = config.icon
           const isActionLoading = actionLoading === notification.id
@@ -187,7 +188,9 @@ export default function Notificaciones() {
             <div
               key={notification.id}
               className={`bg-white dark:bg-gray-800 rounded-xl shadow-xs border p-4 transition-all ${
-                notification.isRead
+                isUrgentRoute && !notification.isRead
+                  ? "border-red-300 dark:border-red-700 bg-red-50/40 dark:bg-red-900/10 shadow-sm"
+                  : notification.isRead
                   ? "border-gray-200 dark:border-gray-700"
                   : "border-blue-300 dark:border-blue-600 shadow-sm"
               }`}

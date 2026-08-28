@@ -155,7 +155,7 @@ export default function MallaCurricular() {
       setSelectedCredits(result.selectedCredits)
       setCurriculum((previous) => previous?.map((semester) => ({
         ...semester,
-        courses: semester.courses.map((item) => item.id === course.id ? { ...item, selected } : item)
+        courses: semester.courses.map((item) => item.id === course.id ? { ...item, selected, status: selected ? "in_progress" : item.status === "in_progress" ? "available" : item.status } : item)
       })) || null)
     } catch (error) {
       setSelectionError(error instanceof Error ? error.message : "No se pudo actualizar la selección")
@@ -179,6 +179,9 @@ export default function MallaCurricular() {
     .flatMap((semester) => semester.courses)
     .filter((course) => course.status === "completed")
     .reduce((acc, course) => acc + course.credits, 0)
+  const enrolledCourses = displayedCurriculum
+    .flatMap((semester) => semester.courses)
+    .filter((course) => course.selected || course.status === "in_progress")
 
   return (
     <div className="space-y-6">
@@ -192,54 +195,71 @@ export default function MallaCurricular() {
         </p>
       </div>
 
-      <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-xs dark:border-gray-700 dark:bg-gray-800">
-        <div className="flex flex-wrap items-end justify-between gap-3">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-blue-600 dark:text-blue-400">Plan actual{period && ` · ${period}`}</p>
-            <h2 className="mt-1 text-xl font-bold text-slate-900 dark:text-white">Semestre {currentSemester || "-"}</h2>
-          </div>
-          <span className="rounded-full bg-blue-50 px-3 py-2 text-sm font-semibold text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">{selectedCredits} / 18 créditos seleccionados</span>
-        </div>
-        <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          {displayedCurriculum.find((semester) => semester.semester === currentSemester)?.courses
-            .filter((course) => course.status === "in_progress" || course.selected)
-            .slice(0, 4)
-            .map((course) => (
-              <div key={course.code} className="rounded-lg border border-slate-100 bg-slate-50 p-3 dark:border-gray-700 dark:bg-gray-700/60">
-                <p className="font-mono text-[11px] text-slate-400">{course.code}</p>
-                <p className="mt-1 font-semibold text-slate-900 dark:text-white">{course.name}</p>
-                <p className="mt-2 text-xs text-slate-500">{course.credits} créditos</p>
-              </div>
-            ))}
-          {!displayedCurriculum.find((semester) => semester.semester === currentSemester)?.courses.some((course) => course.status === "in_progress" || course.selected) && (
-            <p className="text-sm text-slate-500 dark:text-gray-400">No hay materias seleccionadas o en curso para este semestre.</p>
-          )}
-        </div>
-      </div>
-
       {selectionError && <p className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm font-medium text-red-600 dark:border-red-900 dark:bg-red-900/20">{selectionError}</p>}
 
-      {/* Summary */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xs p-6 border border-gray-200 dark:border-gray-700">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center">
+      {/* Plan actual + Resumen de Avance — bloque único */}
+      <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-xs dark:border-gray-700 dark:bg-gray-800">
+        {/* Cabecera unificada */}
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="flex items-start gap-3">
+            <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center shrink-0">
               <BookOpen className="w-5 h-5 text-blue-600 dark:text-blue-400" />
             </div>
             <div>
-              <h2 className="font-semibold text-gray-900 dark:text-white">Resumen de Avance</h2>
-              <p className="text-sm text-gray-500 dark:text-gray-400">
-                {displayedCompletedCredits} / {displayedTotalCredits} créditos aprobados
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-blue-600 dark:text-blue-400">
+                Plan 2019{period && ` · ${period}`} · Semestre {currentSemester || "-"}
+              </p>
+              <h2 className="mt-1 text-xl font-bold text-slate-900 dark:text-white">
+                Plan de estudios y avance
+              </h2>
+              <p className="mt-1 text-sm text-slate-500 dark:text-gray-400">
+                {displayedCompletedCredits} / {displayedTotalCredits} créditos aprobados · {selectedCredits} / 18 seleccionados
               </p>
             </div>
           </div>
-          <span className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-            {Math.round((displayedCompletedCredits / displayedTotalCredits) * 100)}%
-          </span>
+          <div className="flex items-center gap-3 shrink-0">
+            <span className="text-3xl font-bold text-blue-600 dark:text-blue-400">
+              {displayedTotalCredits ? Math.round((displayedCompletedCredits / displayedTotalCredits) * 100) : 0}%
+            </span>
+            <span className="hidden sm:inline-flex rounded-full bg-blue-50 px-3 py-2 text-sm font-semibold text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
+              {selectedCredits} / 18 créditos
+            </span>
+          </div>
         </div>
 
-        {/* Legend */}
-        <div className="flex flex-wrap gap-4 mt-4">
+        {/* Barra de progreso única */}
+        <div className="mt-5 h-2.5 overflow-hidden rounded-full bg-slate-100 dark:bg-gray-700">
+          <div
+            className="h-2.5 rounded-full bg-blue-600 transition-all"
+            style={{ width: `${displayedTotalCredits ? Math.round((displayedCompletedCredits / displayedTotalCredits) * 100) : 0}%` }}
+          />
+        </div>
+
+        {/* Materias en curso / seleccionadas */}
+        <div className="mt-6">
+          <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-slate-500 dark:text-gray-400">
+            Materias en curso / seleccionadas · {enrolledCourses.length ? `${enrolledCourses.length} materias` : "sin materias"} {enrolledCourses.length ? `· ${enrolledCourses.reduce((acc, c) => acc + c.credits, 0)} créditos` : ""}
+          </p>
+          {enrolledCourses.length ? (
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              {enrolledCourses.map((course) => (
+                <div
+                  key={course.code}
+                  className="rounded-lg border border-slate-100 bg-slate-50 p-3 dark:border-gray-700 dark:bg-gray-700/60"
+                >
+                  <p className="font-mono text-[11px] text-slate-400">{course.code}</p>
+                  <p className="mt-1 text-sm font-semibold text-slate-900 dark:text-white leading-tight">{course.name}</p>
+                  <p className="mt-2 text-xs text-slate-500">{course.credits} créditos {course.selected || course.status === "in_progress" ? "· Cursando" : ""}</p>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-slate-500 dark:text-gray-400">No hay materias seleccionadas o en curso para este semestre.</p>
+          )}
+        </div>
+
+        {/* Leyenda */}
+        <div className="mt-6 flex flex-wrap gap-4 border-t border-slate-100 pt-4 dark:border-gray-700">
           {Object.entries(statusConfig).map(([key, config]) => (
             <div key={key} className="flex items-center gap-2">
               <config.icon className="w-4 h-4 text-gray-600 dark:text-gray-400" />
