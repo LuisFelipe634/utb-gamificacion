@@ -44,6 +44,7 @@ Sistema web que permite a los estudiantes visualizar su progreso en la malla cur
 - **Acompanamiento docente**: vista de cursos asignados con lista de estudiantes inscritos.
 - **Verificacion de misiones**: revisar evidencia, aprobar o devolver con comentarios.
 - **Perfil del estudiante**: promedio, creditos, cursos aprobados, racha, materias del semestre actual, ruta recomendada, insignias y alertas de riesgo.
+- **Enviar ruta recomendada**: el docente envia una notificacion al estudiante con las materias que debe priorizar, basada en prerrequisitos y creditos pendientes. El mensaje se registra como actividad.
 - **Perfil docente**: informacion profesional, facultad, departamento y estadisticas de acompanamiento.
 
 ---
@@ -120,8 +121,10 @@ El motor de recomendaciones analiza:
 
 ```
 utb-gamificacion/
+  .env.example             # Plantilla de variables de entorno
+  setup.sh                 # Script de instalacion automatica
   prisma/
-    schema.prisma          # Modelos de la base de datos (23 modelos)
+    schema.prisma          # Modelos de la base de datos (20 modelos)
     seed.ts                # Datos iniciales de prueba
   src/
     app/
@@ -136,6 +139,7 @@ utb-gamificacion/
         stats/              # Estadisticas del estudiante
         student/            # Datos del estudiante
         teacher/            # Datos del docente
+        teacher/notify-route/ # Enviar ruta recomendada a estudiantes
       dashboard/            # Dashboard principal
       docentes/             # Acompanamiento docente
       estadisticas/         # Estadisticas detalladas
@@ -173,6 +177,19 @@ utb-gamificacion/
 
 ### Pasos
 
+#### Metodo rapido (recomendado)
+
+El script `setup.sh` instala lo necesario automaticamente en un dispositivo nuevo:
+
+```bash
+./setup.sh            # Instalacion completa (Node, PostgreSQL, DB, dependencias)
+./setup.sh --skip-db  # Solo dependencias npm, sin tocar PostgreSQL
+```
+
+El script detecta el sistema operativo (Linux Debian/Fedora/Arch o macOS), instala Node.js (>=18) via nvm, instala y arranca PostgreSQL, crea el usuario y la base de datos, genera el `.env` desde `.env.example`, instala dependencias npm, sincroniza el schema y puebla la base de datos. Ademas instala las extensiones de VS Code recomendadas si esta disponible.
+
+#### Metodo manual
+
 1. Clonar el repositorio
 
 ```bash
@@ -188,7 +205,7 @@ npm install
 
 3. Configurar variables de entorno
 
-Crear un archivo `.env` en la raiz del proyecto:
+Crear un archivo `.env` en la raiz del proyecto (hay una plantilla en `.env.example`):
 
 ```env
 DATABASE_URL="postgresql://usuario:password@localhost:5432/utb_gamificacion?schema=public"
@@ -237,6 +254,10 @@ El email debe terminar en `@utb.edu.co` para poder iniciar sesion.
 ## Comandos Disponibles
 
 ```bash
+# Instalacion
+./setup.sh              # Instalacion completa automatica
+./setup.sh --skip-db    # Solo dependencias npm
+
 # Desarrollo
 npm run dev              # Servidor de desarrollo con hot reload
 
@@ -287,7 +308,7 @@ npm run lint             # Verificar con ESLint
 ### Notificaciones y Actividad
 
 - **Notification**: notificaciones por tipo (INFO, WARNING, ALERTA_RIESGO, LOGRO_OBTENIDO, MISION_DISPONIBLE, RECORDATORIO).
-- **Activity**: registro de actividad del estudiante para calcular rachas.
+- **Activity**: registro de actividad del estudiante para calcular rachas (incluye accion `RUTA_RECOMENDADA_DOCENTE` cuando un docente envia una ruta recomendada).
 
 ### Recomendaciones y Riesgo
 
