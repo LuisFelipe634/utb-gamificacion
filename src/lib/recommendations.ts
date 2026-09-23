@@ -1,7 +1,8 @@
 import { prisma } from "@/lib/prisma"
+import { getCurrentSemester } from "@/lib/academic"
 
 type RecommendationItem = {
-  type: "CURSO_SUGERIDO" | "ALERTA_ATRASO" | "ELECTIVA_RECOMENDADA" | "MEJORA_PROMEDIO" | "RUTA_ACademica"
+  type: "CURSO_SUGERIDO" | "ALERTA_ATRASO" | "ELECTIVA_RECOMENDADA" | "MEJORA_PROMEDIO" | "RUTA_ACademica" | "RELLENAR_CREDITOS"
   title: string
   description: string
   priority: number // 1=alta, 2=media, 3=baja
@@ -13,6 +14,7 @@ type RecommendationItem = {
  * - Failed courses they need to retake
  * - Bottleneck courses that unlock many others
  * - Low GPA warnings
+ * - Remaining credit slots to maximize semester load
  */
 export async function generateRecommendations(studentProfileId: string): Promise<void> {
   // Get student profile with all related data
@@ -168,6 +170,35 @@ export async function generateRecommendations(studentProfileId: string): Promise
       description: `Tu promedio actual es ${profile.averageGrade.toFixed(1)}. Considera reducir la carga académica el próximo semestre y enfocarte en mejorar tus calificaciones.`,
       priority: 1,
     })
+  }
+
+  // 6.5. Rellenar créditos disponibles del semestre actual (solo periodo vigente)
+  const now = new Date()
+  const period = `${now.getFullYear()}-${now.getMonth() < 6 ? 1 : 2}`
+  const currentSemester = getCurrentSemester(profile.enrollments, profile.currentSemester, period)
+  const creditLimit = profile.averageGrade >= 4.0 ? 20 : 18
+  let selectedCredits = 0
+  for (const enrollment of profile.enrollments) {
+    if ((enrollment.status === "CURSANDO" || enrollment.status === "INSCRITO") && enrollment.semesterCode === period && enrollment.course.semester?.number === currentSemester) {
+      selectedCredits += enrollment.course.credits
+    }
+  }
+  const remainingCredits = creditLimit - selectedCredits
+
+  if (remainingCredits > 0 && profile.averageGrade >= 3.5) {
+    const nextSemesterNumber = currentSemester + 1
+    const nextSemesterCourses = unlockedCourses.filter(
+      (c) => c.semester?.number === nextSemesterNumber && c.credits <= remainingCredits
+    )
+    const bestFitCourse = nextSemesterCourses.sort((a, b) => b.credits - a.credits)[0]
+    if (bestFitCourse) {
+      recommendations.push({
+        type: "RELLENAR_CREDITOS",
+        title: `💰 Rellena tu semestre con ${remainingCredits} créditos disponibles`,
+        description: `Te quedan ${remainingCredits} créditos disponibles este semestre. Puedes reemplazar una materia por "${bestFitCourse.name}" (${bestFitCourse.credits} créditos) para aprovechar tu cupo y terminar la carrera más rápido.${profile.averageGrade >= 4.0 ? " Tu promedio ≥ 4.0 te da derecho a 20 créditos." : ""}`,
+        priority: 2,
+      })
+    }
   }
 
   // If no specific recommendations, add a general one

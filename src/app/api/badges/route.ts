@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { auth } from "@/lib/auth"
-import { getBadgeProgress, syncDynamicBadges } from "@/lib/badges"
+import { getMeritcoinBalance, syncMeritcoinAwardsByStudentId, syncMeritcoinBadges, syncMeritcoinTemplates } from "@/lib/meritcoin"
 
 export async function GET() {
   try {
@@ -13,8 +13,46 @@ export async function GET() {
 
     const userId = session.user.id as string
 
-    // Sincronizar insignias dinámicas
-    await syncDynamicBadges(userId)
+    // Catálogo de insignias reales de Meritcoin (no requiere wallet).
+    // Si su backend está caído, se muestran las ya reflejadas localmente.
+    let meritcoinConnected = false
+    try {
+      const result = await syncMeritcoinTemplates()
+      meritcoinConnected = result.connected
+    } catch (error) {
+      console.error("Error sincronizando plantillas Meritcoin:", error)
+    }
+
+    // Reflejar insignias on-chain ganadas por el estudiante (requiere wallet)
+    // + awards por ID de Meritcoin/Moodle (funciona sin wallet y la auto-importa)
+    let meritcoinBalance: number | null = null
+    try {
+      const walletOwner = await prisma.studentProfile.findUnique({
+        where: { userId },
+        select: { walletAddress: true, meritcoinStudentId: true },
+      })
+      if (walletOwner?.meritcoinStudentId) {
+        const idResult = await syncMeritcoinAwardsByStudentId(userId, walletOwner.meritcoinStudentId)
+        meritcoinConnected = idResult.connected || meritcoinConnected
+        // Si se importó la wallet, recargar para el sync por wallet
+        if (idResult.walletImported) {
+          const refreshed = await prisma.studentProfile.findUnique({
+            where: { userId },
+            select: { walletAddress: true },
+          })
+          if (refreshed?.walletAddress) walletOwner.walletAddress = refreshed.walletAddress
+        }
+      }
+      if (walletOwner?.walletAddress) {
+        const result = await syncMeritcoinBadges(userId, walletOwner.walletAddress)
+        meritcoinConnected = result.connected || meritcoinConnected
+        if (result.connected) {
+          meritcoinBalance = await getMeritcoinBalance(walletOwner.walletAddress)
+        }
+      }
+    } catch (error) {
+      console.error("Error sincronizando insignias Meritcoin:", error)
+    }
 
     // Obtener todas las insignias disponibles
     const allBadges = await prisma.badge.findMany({
@@ -30,19 +68,6 @@ export async function GET() {
       }
     })
 
-    const studentData = await prisma.user.findUnique({
-      where: { id: userId },
-      include: {
-        studentProfile: {
-          include: {
-            academicHistory: true,
-            enrollments: { include: { course: { include: { semester: true } } } },
-            program: { include: { semesters: { include: { courses: true } } } }
-          }
-        }
-      }
-    })
-
     // Combinar información
     const badges = allBadges.map((badge) => {
       const earned = earnedBadges.find((eb) =>eb.badgeId === badge.id)
@@ -55,10 +80,11 @@ export async function GET() {
         category: badge.category,
         requiredLevel: badge.requiredLevel,
         pointsRequired: badge.pointsRequired,
-        progress: studentData ? getBadgeProgress(studentData, badge.name) : null,
+        progress: null,
         earned: !!earned,
         earnedAt: earned?.earnedAt || null,
-        evidence: earned?.evidence || null
+        evidence: earned?.evidence || null,
+        source: earned?.verifiedBy === "MERITCOIN" || badge.externalId?.startsWith("MERIT-") ? "MERITCOIN" : "LOCAL"
       }
     })
 
@@ -81,7 +107,8 @@ export async function GET() {
         earned: earnedCount,
         percentage: totalBadges > 0 ? Math.round((earnedCount / totalBadges) * 100) : 0,
         byCategory
-      }
+      },
+      meritcoin: { connected: meritcoinConnected, balanceMrt: meritcoinBalance }
     })
   } catch (error) {
     console.error("Error fetching badges:", error)

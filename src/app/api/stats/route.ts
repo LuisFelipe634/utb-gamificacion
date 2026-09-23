@@ -4,6 +4,11 @@ import { auth } from "@/lib/auth"
 import { getAverageGrade, getCurrentSemester } from "@/lib/academic"
 
 export async function GET() {
+  function currentPeriod() {
+    const now = new Date()
+    return `${now.getFullYear()}-${now.getMonth() < 6 ? 1 : 2}`
+  }
+
   try {
     const session = await auth()
 
@@ -34,7 +39,7 @@ export async function GET() {
         .filter((enrollment) => enrollment.status === "APROBADO")
         .map((enrollment) => [enrollment.courseId, enrollment.course.credits])
     ).values()).reduce((total, credits) => total + credits, 0)
-    const currentSemester = getCurrentSemester(profile.enrollments, profile.currentSemester)
+    const currentSemester = getCurrentSemester(profile.enrollments, profile.currentSemester, currentPeriod())
     const averageGrade = getAverageGrade(profile.academicHistory, profile.enrollments, profile.averageGrade)
 
     // Obtener puntos totales

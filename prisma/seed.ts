@@ -215,21 +215,9 @@ async function main() {
 
   console.log('✅ Niveles creados')
 
-  // Crear insignias
-  const badgesData = [
-    { name: 'Explorador', description: 'Completa tu primer semestre', iconUrl: '🎯', category: 'PROGRESO' as const },
-    { name: 'Constante', description: 'Asiste por 4 semanas seguidas', iconUrl: '📅', category: 'HABITO' as const },
-    { name: 'Mentor', description: 'Ayuda a 3 compañeros', iconUrl: '👨‍🏫', category: 'IMPACTO_SOCIAL' as const },
-    { name: 'Excelencia', description: 'Promedio superior a 4.5', iconUrl: '⭐', category: 'RENDIMIENTO' as const },
-    { name: 'Velocista', description: 'Aprueba todo en primer intento', iconUrl: '🚀', category: 'PROGRESO' as const },
-    { name: 'Especialista', description: '3 cursos con nota perfecta', iconUrl: '🏆', category: 'COMPETENCIA' as const }
-  ]
-
-  for (const badgeData of badgesData) {
-    await prisma.badge.create({ data: badgeData })
-  }
-
-  console.log('✅ Insignias creadas')
+  // Las insignias NO se siembran aquí: el catálogo real viene de Meritcoin
+  // (plantillas del backend FastAPI) y se refleja en GET /api/badges.
+  console.log('ℹ️ Insignias: se sincronizan desde Meritcoin en tiempo de ejecución')
 
   // Crear misiones de ejemplo
   const missionsData = [

@@ -3,9 +3,13 @@ import { prisma } from "@/lib/prisma"
 import { getAverageGrade, getCurrentSemester } from "@/lib/academic"
 import { auth } from "@/lib/auth"
 import { calculateStreak } from "@/lib/streak"
-import { syncDynamicBadges } from "@/lib/badges"
 
 export async function GET() {
+  function currentPeriod() {
+    const now = new Date()
+    return `${now.getFullYear()}-${now.getMonth() < 6 ? 1 : 2}`
+  }
+
   try {
     const session = await auth()
 
@@ -24,8 +28,6 @@ export async function GET() {
     if (!todayActivity) {
       await prisma.activity.create({ data: { userId, action: "ACADEMIC_DAILY_ACTIVITY", details: { source: "student_profile" } } })
     }
-
-    await syncDynamicBadges(userId);
 
     const user = await prisma.user.findUnique({
       where: { id: userId },
@@ -100,7 +102,7 @@ export async function GET() {
         .filter((enrollment) => enrollment.status === "APROBADO")
         .map((enrollment) => [enrollment.courseId, enrollment.course.credits]) || []
     ).values()).reduce((total, credits) => total + credits, 0)
-    const currentSemester = getCurrentSemester(user.studentProfile?.enrollments || [], user.studentProfile?.currentSemester || 1)
+    const currentSemester = getCurrentSemester(user.studentProfile?.enrollments || [], user.studentProfile?.currentSemester || 1, currentPeriod())
     const averageGrade = user.studentProfile
       ? getAverageGrade(user.studentProfile.academicHistory, user.studentProfile.enrollments, user.studentProfile.averageGrade)
       : 0
@@ -151,6 +153,57 @@ export async function GET() {
     })
   } catch (error) {
     console.error("Error fetching student data:", error)
+    return NextResponse.json(
+      { error: "Error interno del servidor" },
+      { status: 500 }
+    )
+  }
+}
+
+// PATCH: Actualizar el vínculo con Meritcoin del estudiante
+// (wallet Ethereum y/o ID de estudiante en Meritcoin/Moodle)
+export async function PATCH(request: Request) {
+  try {
+    const session = await auth()
+
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: "No autorizado" }, { status: 401 })
+    }
+
+    if (session.user.role !== "STUDENT") {
+      return NextResponse.json({ error: "Solo los estudiantes pueden actualizar su vínculo Meritcoin" }, { status: 403 })
+    }
+
+    const body = await request.json()
+    const { walletAddress, meritcoinStudentId } = body as { walletAddress?: unknown; meritcoinStudentId?: unknown }
+
+    if (walletAddress !== undefined && walletAddress !== null && walletAddress !== "") {
+      if (typeof walletAddress !== "string" || !/^0x[a-fA-F0-9]{40}$/.test(walletAddress.trim())) {
+        return NextResponse.json({ error: "Dirección de wallet inválida (formato 0x + 40 caracteres hexadecimales)" }, { status: 400 })
+      }
+    }
+
+    if (meritcoinStudentId !== undefined && meritcoinStudentId !== null && meritcoinStudentId !== "") {
+      if (typeof meritcoinStudentId !== "string" || meritcoinStudentId.trim().length > 100) {
+        return NextResponse.json({ error: "ID de Meritcoin inválido" }, { status: 400 })
+      }
+    }
+
+    const data: { walletAddress?: string | null; meritcoinStudentId?: string | null } = {}
+    if (walletAddress !== undefined) data.walletAddress = !walletAddress ? null : (walletAddress as string).trim()
+    if (meritcoinStudentId !== undefined) {
+      data.meritcoinStudentId = !meritcoinStudentId ? null : (meritcoinStudentId as string).trim()
+    }
+
+    const profile = await prisma.studentProfile.update({
+      where: { userId: session.user.id as string },
+      data,
+      select: { walletAddress: true, meritcoinStudentId: true },
+    })
+
+    return NextResponse.json({ walletAddress: profile.walletAddress, meritcoinStudentId: profile.meritcoinStudentId })
+  } catch (error) {
+    console.error("Error updating wallet:", error)
     return NextResponse.json(
       { error: "Error interno del servidor" },
       { status: 500 }

@@ -56,6 +56,8 @@ model StudentProfile {
   totalCredits    Int      @default(0)
   averageGrade    Float    @default(0.0)
   level           Int      @default(1)  // Nivel académico actual
+  walletAddress   String?  // Wallet Ethereum para insignias on-chain (Meritcoin)
+  meritcoinStudentId String? // ID del estudiante en Meritcoin/Moodle (student_id de awards)
 
   // Relaciones
   user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -192,12 +194,18 @@ model Enrollment {
   status      EnrollmentStatus @default(INSCRITO)
   grade       Float?
   statusDetail String?       // Detalle del estado (APROBADO, REPROBADO, etc.)
+  source      EnrollmentSource @default(UNIVERSITY)
 
   student     StudentProfile @relation(fields: [studentId], references: [id])
   course      Course         @relation(fields: [courseId], references: [id])
 
   @@unique([studentId, courseId, semesterCode])
   @@map("enrollments")
+}
+
+enum EnrollmentSource {
+  UNIVERSITY
+  MANUAL
 }
 
 enum EnrollmentStatus {
@@ -326,6 +334,7 @@ model Badge {
   pointsRequired Int?
   isActive      Boolean   @default(true)
   createdAt     DateTime  @default(now())
+  externalId    String?   @unique // Ej: "MERIT-<tokenId>" para insignias espejo on-chain
 
   students      StudentBadge[]
 
@@ -338,6 +347,7 @@ enum BadgeCategory {
   HABITO
   IMPACTO_SOCIAL
   RENDIMIENTO
+  MERITCOIN
 }
 
 model StudentBadge {
@@ -432,6 +442,7 @@ enum RecommendationType {
   ALERTA_ATRASO
   MEJORA_PROMEDIO
   ELECTIVA_RECOMENDADA
+  RELLENAR_CREDITOS
 }
 
 // ============================================

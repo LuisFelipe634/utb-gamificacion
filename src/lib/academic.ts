@@ -1,19 +1,46 @@
 type EnrollmentForSemester = {
   status: string
+  semesterCode?: string
+  courseId?: string
   course: { semester?: { number: number } }
 }
 
 type GradeRecord = {
   grade: number | null
   status?: string
+  credits?: number
+  course?: { credits?: number }
+}
+
+function creditsOf(record: GradeRecord): number {
+  const credits = record.credits ?? record.course?.credits
+  return typeof credits === "number" && credits > 0 ? credits : 1
+}
+
+function weightedAverage(grades: { grade: number; credits: number }[]): number | null {
+  const totalCredits = grades.reduce((total, item) => total + item.credits, 0)
+  if (totalCredits <= 0) return null
+  const total = grades.reduce((sum, item) => sum + item.grade * item.credits, 0)
+  return Number((total / totalCredits).toFixed(2))
 }
 
 export function getCurrentSemester(
   enrollments: EnrollmentForSemester[],
-  fallback: number
+  fallback: number,
+  period?: string
 ) {
+  // Un CURSANDO duplicado de un curso ya APROBADO no debe anclar el semestre
+  const approvedIds = new Set(
+    enrollments
+      .filter((enrollment) => enrollment.status === "APROBADO" && enrollment.courseId)
+      .map((enrollment) => enrollment.courseId as string)
+  )
   const activeSemesters = enrollments
-    .filter((enrollment) => enrollment.status === "CURSANDO")
+    .filter((enrollment) =>
+      enrollment.status === "CURSANDO" &&
+      (!period || enrollment.semesterCode === period) &&
+      !(enrollment.courseId && approvedIds.has(enrollment.courseId))
+    )
     .map((enrollment) => enrollment.course.semester?.number)
     .filter((semester): semester is number => semester !== undefined)
 
@@ -34,18 +61,20 @@ export function getAverageGrade(
 ) {
   const historyGrades = academicHistory
     .filter((record) => record.status !== "PENDIENTE" && Number.isFinite(record.grade))
-    .map((record) => record.grade as number)
+    .map((record) => ({ grade: record.grade as number, credits: creditsOf(record) }))
 
-  if (historyGrades.length) {
-    return Number((historyGrades.reduce((total, grade) => total + grade, 0) / historyGrades.length).toFixed(2))
+  const historyAverage = weightedAverage(historyGrades)
+  if (historyAverage !== null) {
+    return historyAverage
   }
 
   const enrollmentGrades = enrollments
     .filter((record) => Number.isFinite(record.grade))
-    .map((record) => record.grade as number)
+    .map((record) => ({ grade: record.grade as number, credits: creditsOf(record) }))
 
-  if (enrollmentGrades.length) {
-    return Number((enrollmentGrades.reduce((total, grade) => total + grade, 0) / enrollmentGrades.length).toFixed(2))
+  const enrollmentAverage = weightedAverage(enrollmentGrades)
+  if (enrollmentAverage !== null) {
+    return enrollmentAverage
   }
 
   return fallback

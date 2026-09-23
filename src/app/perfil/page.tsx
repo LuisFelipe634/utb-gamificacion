@@ -6,7 +6,7 @@ import { Award, BookOpen, CheckCircle2, ChevronRight, Flame, Loader2, Target, Tr
 
 type ProfileData = {
   user: { name: string; email: string }
-  profile: { studentCode: string; currentSemester: number; totalCredits: number; averageGrade: number; level: number; program: { name: string; totalCredits: number } }
+  profile: { studentCode: string; currentSemester: number; totalCredits: number; averageGrade: number; level: number; walletAddress: string | null; meritcoinStudentId: string | null; program: { name: string; totalCredits: number } }
   stats: { totalPoints: number; currentLevel: string; nextLevel: string | null; pointsToNextLevel: number; activeMissionsCount: number; completedMissionsCount: number; badgesCount: number; streak: { current: number; best: number; activeToday: boolean } }
   recentBadges: { id: string; name: string; icon: string; earned: string }[]
 }
@@ -14,6 +14,10 @@ type ProfileData = {
 export default function ProfilePage() {
   const [data, setData] = useState<ProfileData | null>(null)
   const [error, setError] = useState("")
+  const [walletInput, setWalletInput] = useState<string | null>(null)
+  const [meritIdInput, setMeritIdInput] = useState<string | null>(null)
+  const [walletSaving, setWalletSaving] = useState(false)
+  const [walletMessage, setWalletMessage] = useState("")
 
   useEffect(() => {
     fetch("/api/student").then(async (response) => {
@@ -21,6 +25,31 @@ export default function ProfilePage() {
       setData(await response.json())
     }).catch(() => setError("No se pudo cargar el perfil"))
   }, [])
+
+  const shownWallet = walletInput ?? data?.profile.walletAddress ?? ""
+  const shownMeritId = meritIdInput ?? data?.profile.meritcoinStudentId ?? ""
+
+  const saveWallet = async () => {
+    setWalletSaving(true)
+    setWalletMessage("")
+    try {
+      const response = await fetch("/api/student", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ walletAddress: shownWallet.trim(), meritcoinStudentId: shownMeritId.trim() }),
+      })
+      const result = await response.json()
+      if (!response.ok) throw new Error(result.error || "No se pudo guardar el vínculo Meritcoin")
+      setData((prev) => prev ? { ...prev, profile: { ...prev.profile, walletAddress: result.walletAddress, meritcoinStudentId: result.meritcoinStudentId } } : prev)
+      setWalletInput(result.walletAddress)
+      setMeritIdInput(result.meritcoinStudentId)
+      setWalletMessage(result.walletAddress || result.meritcoinStudentId ? "Vínculo Meritcoin guardado. Tus insignias on-chain se reflejarán en Logros." : "Vínculo Meritcoin eliminado.")
+    } catch (err) {
+      setWalletMessage(err instanceof Error ? err.message : "No se pudo guardar el vínculo Meritcoin")
+    } finally {
+      setWalletSaving(false)
+    }
+  }
 
   if (error) return <div className="rounded-xl bg-red-50 p-6 text-red-700">{error}</div>
   if (!data) return <div className="flex h-64 items-center justify-center text-gray-500"><Loader2 className="mr-2 h-5 w-5 animate-spin" />Cargando perfil...</div>
@@ -39,6 +68,8 @@ export default function ProfilePage() {
         <section className="rounded-xl border border-gray-200 bg-white shadow-xs p-6 dark:border-gray-700 dark:bg-gray-800"><div className="flex items-start justify-between gap-4"><div><h2 className="text-xl font-bold">Resumen académico</h2><p className="mt-1 text-sm text-gray-500">{data.profile.program.name}</p></div><span className="rounded-full bg-blue-100 px-3 py-1 text-sm font-semibold text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">Nivel {data.profile.level}</span></div><div className="mt-6 grid gap-4 sm:grid-cols-2"><div><p className="text-sm text-gray-500">Promedio acumulado</p><p className="text-2xl font-bold">{data.profile.averageGrade.toFixed(1)}</p></div><div><p className="text-sm text-gray-500">Progreso de carrera</p><p className="text-2xl font-bold">{progress}%</p></div></div><div className="mt-5 h-3 rounded-full bg-gray-200 dark:bg-gray-700"><div className="h-3 rounded-full bg-blue-600" style={{ width: `${progress}%` }} /></div><p className="mt-2 text-sm text-gray-500">{data.profile.totalCredits} de {data.profile.program.totalCredits} créditos aprobados</p></section>
         <section className="rounded-xl border border-gray-200 bg-white shadow-xs p-6 dark:border-gray-700 dark:bg-gray-800"><h2 className="text-xl font-bold">Nivel de gamificación</h2><p className="mt-1 text-sm text-gray-500">{data.stats.currentLevel}</p><div className="mt-5 flex items-center gap-3"><CheckCircle2 className="h-8 w-8 text-emerald-500" /><div><p className="font-semibold">{data.stats.totalPoints.toLocaleString()} puntos</p><p className="text-sm text-gray-500">{data.stats.nextLevel ? `${data.stats.pointsToNextLevel} para ${data.stats.nextLevel}` : "Has alcanzado el nivel máximo"}</p></div></div><Link href="/estadisticas" className="mt-6 flex items-center justify-between rounded-lg bg-gray-50 p-3 text-sm font-semibold text-blue-700 dark:bg-gray-700/60 dark:text-blue-300">Ver estadísticas detalladas <ChevronRight className="h-4 w-4" /></Link></section>
       </div>
+
+      <section className="rounded-xl border border-gray-200 bg-white shadow-xs p-6 dark:border-gray-700 dark:bg-gray-800"><h2 className="text-xl font-bold">Vínculo con Meritcoin</h2><p className="mt-1 text-sm text-gray-500">Registra tu wallet Ethereum y/o tu ID de estudiante en Meritcoin/Moodle para reflejar tus insignias on-chain en Logros.</p><div className="mt-4 flex flex-col gap-3"><input value={shownWallet} onChange={(e) => setWalletInput(e.target.value)} placeholder="Wallet 0x..." spellCheck={false} className="flex-1 rounded-lg border border-gray-300 px-3 py-2 font-mono text-sm dark:border-gray-600 dark:bg-gray-700 dark:text-white" /><div className="flex flex-col gap-3 sm:flex-row"><input value={shownMeritId} onChange={(e) => setMeritIdInput(e.target.value)} placeholder="ID en Meritcoin/Moodle (ej. STU-3)" spellCheck={false} className="flex-1 rounded-lg border border-gray-300 px-3 py-2 font-mono text-sm dark:border-gray-600 dark:bg-gray-700 dark:text-white" /><button onClick={saveWallet} disabled={walletSaving} className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50">{walletSaving ? "Guardando..." : "Guardar vínculo"}</button></div></div>{walletMessage && <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">{walletMessage}</p>}</section>
 
       <section className="rounded-xl border border-gray-200 bg-white shadow-xs p-6 dark:border-gray-700 dark:bg-gray-800"><div className="flex items-center justify-between"><h2 className="text-xl font-bold">Insignias recientes</h2><Link href="/logros" className="text-sm font-semibold text-blue-600">Ver todas</Link></div><div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{data.recentBadges.map((badge) => <div key={badge.id} className="flex items-center gap-3 rounded-lg bg-amber-50 p-3 dark:bg-amber-900/20"><span className="text-2xl">{badge.icon}</span><div><p className="font-semibold">{badge.name}</p><p className="text-xs text-gray-500">Obtenida</p></div></div>)}{!data.recentBadges.length && <p className="text-sm text-gray-500">Aún no tienes insignias obtenidas.</p>}</div></section>
     </div>

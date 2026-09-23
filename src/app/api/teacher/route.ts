@@ -79,7 +79,8 @@ export async function GET() {
         .sort((first, second) => first.semester.number - second.semester.number)
         .slice(0, 3)
 
-      const currentSemester = getCurrentSemester(profile.enrollments, profile.currentSemester)
+      const period = assignedPeriods[0] || undefined
+      const currentSemester = getCurrentSemester(profile.enrollments, profile.currentSemester, period)
       const averageGrade = getAverageGrade(profile.academicHistory, profile.enrollments, profile.averageGrade)
       const approvedCredits = Array.from(new Map(profile.enrollments.filter((enrollment) => enrollment.status === "APROBADO").map((enrollment) => [enrollment.courseId, enrollment.course.credits])).values()).reduce((total, credits) => total + credits, 0)
       const academicRisk = averageGrade < 3 ? "Requiere acompañamiento por promedio bajo" :
@@ -197,44 +198,9 @@ export async function PATCH(request: Request) {
       })
     })
 
-    if (approved) await awardEligibleBadges(studentMission.studentId)
-
     return NextResponse.json({ success: true, status: approved ? "VERIFICADA" : "RECHAZADA" })
   } catch (error) {
     console.error("Error reviewing mission:", error)
     return NextResponse.json({ error: "Error interno del servidor" }, { status: 500 })
-  }
-}
-
-async function awardEligibleBadges(userId: string) {
-  const profile = await prisma.studentProfile.findUnique({
-    where: { userId },
-    include: { enrollments: true }
-  })
-  if (!profile) return
-
-  const [badges, earnedBadges] = await Promise.all([
-    prisma.badge.findMany({ where: { isActive: true } }),
-    prisma.studentBadge.findMany({ where: { studentId: userId } })
-  ])
-  const earnedIds = new Set(earnedBadges.map((badge) => badge.badgeId))
-  const approvedCourses = profile.enrollments.filter((enrollment) => enrollment.status === "APROBADO").length
-
-  for (const badge of badges) {
-    const earned = badge.name === "Excelencia" && profile.averageGrade >= 4.5 ||
-      badge.name === "Explorador" && profile.currentSemester > 1 ||
-      badge.name === "Velocista" && approvedCourses >= 5
-    if (!earned || earnedIds.has(badge.id)) continue
-
-    await prisma.studentBadge.create({ data: { studentId: userId, badgeId: badge.id } })
-    await prisma.notification.create({
-      data: {
-        userId,
-        title: "Nueva insignia desbloqueada",
-        message: `Has obtenido la insignia: ${badge.name}`,
-        type: "LOGRO_OBTENIDO",
-        link: "/logros"
-      }
-    })
   }
 }

@@ -131,6 +131,7 @@ utb-gamificacion/
       api/
         auth/[...nextauth]/ # Autenticacion NextAuth
         badges/             # CRUD de insignias
+        badges/award/       # Emitir insignia local a Meritcoin on-chain
         curriculum/         # Malla curricular
         missions/           # Misiones estudiantiles
         notifications/      # Notificaciones
@@ -139,7 +140,7 @@ utb-gamificacion/
         stats/              # Estadisticas del estudiante
         student/            # Datos del estudiante
         teacher/            # Datos del docente
-        teacher/notify-route/ # Enviar ruta recomendada a estudiantes
+        teacher/notify/     # Enviar ruta recomendada a estudiantes
       dashboard/            # Dashboard principal
       docentes/             # Acompanamiento docente
       estadisticas/         # Estadisticas detalladas
@@ -156,7 +157,7 @@ utb-gamificacion/
     lib/
       auth.ts               # Configuracion NextAuth + bcrypt
       prisma.ts             # Cliente de Prisma
-      badges.ts             # Logica de insignias dinamicas
+      meritcoin.ts          # Integracion Meritcoin (espejo + emision on-chain)
       streak.ts             # Calculo de racha de actividad
       recommendations.ts    # Generador de recomendaciones
       academic.ts           # Utilidades academicas (promedio, semestre)

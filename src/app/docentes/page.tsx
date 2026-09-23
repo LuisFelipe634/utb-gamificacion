@@ -92,7 +92,7 @@ export default function TeachersPage() {
     setNotifyLoading(studentId)
     setNotifyFeedback(null)
     try {
-      const response = await fetch("/api/teacher/notify-route", {
+      const response = await fetch("/api/teacher/notify", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ studentId }),
