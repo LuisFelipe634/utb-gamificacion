@@ -20,9 +20,7 @@ export async function GET() {
       where: { id: teacherUserId },
       include: {
         teacherProfile: {
-          include: {
-            assignedCourses: { include: { course: { include: { semester: true } } } }
-          }
+          include: { assignedCourses: { include: { course: { include: { semester: true } } } } }
         }
       }
     })
@@ -30,6 +28,7 @@ export async function GET() {
     const assignedCourses = teacher?.teacherProfile?.assignedCourses || []
     const assignedCourseIds = assignedCourses.map((assignment) => assignment.courseId)
     const assignedPeriods = [...new Set(assignedCourses.map((assignment) => assignment.period))]
+    const courseById = new Map(assignedCourses.map((assignment) => [assignment.courseId, assignment]))
 
     if (assignedCourseIds.length === 0) {
       return NextResponse.json({ rewards: [] })
@@ -64,7 +63,17 @@ export async function GET() {
             name: true,
             email: true,
             studentProfile: {
-              select: { studentCode: true }
+              select: {
+                studentCode: true,
+                enrollments: {
+                  where: {
+                    courseId: { in: assignedCourseIds },
+                    status: { in: ["CURSANDO", "INSCRITO"] as const },
+                    ...(assignedPeriods.length ? { semesterCode: { in: assignedPeriods } } : {})
+                  },
+                  select: { courseId: true, semesterCode: true, course: { select: { id: true, code: true, name: true, semester: { select: { number: true } } } } }
+                }
+              }
             }
           }
         },
@@ -103,6 +112,14 @@ export async function GET() {
         studentName: sr.student.name,
         studentEmail: sr.student.email,
         studentCode: sr.student.studentProfile?.studentCode,
+        courses: (sr.student.studentProfile?.enrollments || []).map((enrollment) => ({
+          id: enrollment.course.id,
+          code: enrollment.course.code,
+          name: enrollment.course.name,
+          semester: enrollment.course.semester.number,
+          period: enrollment.semesterCode,
+          assignmentId: courseById.get(enrollment.courseId)?.id || null
+        })),
         reward: {
           id: sr.reward.id,
           name: sr.reward.name,
@@ -149,7 +166,7 @@ export async function PATCH(request: Request) {
 
   try {
     const body = await request.json()
-    const { studentRewardId, decision, comment } = body as { studentRewardId: string; decision: "approve" | "reject"; comment?: string }
+    const { studentRewardId, courseId, decision, comment } = body as { studentRewardId: string; courseId?: string; decision: "approve" | "reject"; comment?: string }
 
     if (!studentRewardId || !["approve", "reject"].includes(decision)) {
       return NextResponse.json({ error: "Decisión inválida" }, { status: 400 })
@@ -186,11 +203,17 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: "Perfil de estudiante no encontrado" }, { status: 404 })
     }
 
-    const isAssigned = studentProfile.enrollments.some((e) =>
-      assignedCourseIds.includes(e.courseId) &&
-      ["CURSANDO", "INSCRITO"].includes(e.status) &&
-      (assignedPeriods.length === 0 || assignedPeriods.includes(e.semesterCode))
+    const eligibleEnrollments = studentProfile.enrollments.filter((enrollment) =>
+      assignedCourseIds.includes(enrollment.courseId) &&
+      ["CURSANDO", "INSCRITO"].includes(enrollment.status) &&
+      (assignedPeriods.length === 0 || assignedPeriods.includes(enrollment.semesterCode))
     )
+
+    if (courseId && !eligibleEnrollments.some((enrollment) => enrollment.courseId === courseId)) {
+      return NextResponse.json({ error: "El estudiante no está matriculado en ese curso asignado" }, { status: 403 })
+    }
+
+    const isAssigned = eligibleEnrollments.length > 0
 
     if (!isAssigned) {
       return NextResponse.json({ error: "El estudiante no pertenece a tus cursos vigentes" }, { status: 403 })

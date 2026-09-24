@@ -50,6 +50,14 @@ type PendingReward = {
   studentId: string
   studentName: string
   studentCode: string | null
+  courses: {
+    id: string
+    code: string
+    name: string
+    semester: number
+    period: string
+    assignmentId: string | null
+  }[]
   reward: {
     id: string
     name: string
@@ -80,6 +88,10 @@ export default function TeachersPage() {
   const [rewardReviewComment, setRewardReviewComment] = useState<Record<string, string>>({})
 
   useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("section") === "recompensas") {
+      setActiveSection("recompensas")
+    }
+
     fetch("/api/teacher").then(async (response) => {
       if (!response.ok) throw new Error("No se pudo cargar el seguimiento")
       const result = await response.json()
@@ -120,7 +132,7 @@ export default function TeachersPage() {
       const response = await fetch("/api/teacher/rewards", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ studentRewardId, decision, comment: rewardReviewComment[studentRewardId] })
+        body: JSON.stringify({ studentRewardId, courseId: selectedCourseId, decision, comment: rewardReviewComment[studentRewardId] })
       })
       if (!response.ok) throw new Error((await response.json()).error || "No se pudo revisar la recompensa")
       setPendingRewards((rewards) => rewards.filter((reward) => reward.id !== studentRewardId))
@@ -134,7 +146,7 @@ export default function TeachersPage() {
   const selectedCourse = courses.find((course) => course.id === selectedCourseId)
   const courseStudentIds = new Set(selectedCourse?.students.map((student) => student.id) || [])
   const pendingMissions = allPendingMissions.filter((mission) => mission.studentId && courseStudentIds.has(mission.studentId))
-  const coursePendingRewards = pendingRewards.filter((reward) => courseStudentIds.has(reward.studentId))
+  const coursePendingRewards = pendingRewards.filter((reward) => reward.courses.some((course) => course.id === selectedCourseId))
   const courseMissionHistory = missionHistory.filter((historyItem) => courseStudentIds.has(historyItem.studentId))
 
   const teacherName = session?.user?.name || "Docente"
@@ -305,6 +317,9 @@ export default function TeachersPage() {
                         <span className="text-3xl">{reward.reward.icon}</span>
                         <div>
                           <p className="font-semibold">{reward.studentName} · {reward.studentCode}</p>
+                          <p className="mt-1 text-xs font-semibold uppercase tracking-wide text-blue-600 dark:text-blue-300">
+                            {reward.courses.filter((course) => course.id === selectedCourseId).map((course) => `${course.code} · ${course.name} · ${course.period}`).join(" | ")}
+                          </p>
                           <p className="text-sm">{reward.reward.name} <span className="text-purple-600">({reward.reward.cost.toLocaleString("es-CO")} pts)</span></p>
                           <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{reward.reward.description}</p>
                           <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">Evidencia: {reward.evidence || "Sin evidencia"}</p>
