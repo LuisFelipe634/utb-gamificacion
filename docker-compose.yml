@@ -1,0 +1,50 @@
+# UTB Gamificación - Stack completo: app Next.js + PostgreSQL
+# Uso:
+#   docker compose up -d --build   # levantar
+#   docker compose logs -f app      # ver logs
+#   docker compose down             # detener (conserva datos en pgdata)
+#   docker compose down -v          # detener y BORRAR la base de datos
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: utb_gamificacion
+    ports:
+      # 5433 en el host para no chocar con un Postgres local en 5432
+      - "5433:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d utb_gamificacion"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  app:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@db:5432/utb_gamificacion?schema=public
+      NEXTAUTH_SECRET: f2583a6f584250bdf4560755db233b1d42e1f7cd58541e1a589290f4e40db264
+      NEXTAUTH_URL: http://localhost:3000
+      # Auth.js v5 exige host confiable en producción
+      AUTH_URL: http://localhost:3000
+      AUTH_TRUST_HOST: "true"
+      # Sin servicio Meritcoin en este stack: /api/badges responde en modo local
+      MERITCOIN_API_URL: http://localhost:8000
+    ports:
+      - "3000:3000"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/login > /dev/null 2>&1 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+volumes:
+  pgdata:
