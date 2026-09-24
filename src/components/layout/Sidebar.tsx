@@ -9,7 +9,8 @@ import {
   Target,
   BarChart3,
   Users,
-  UserRound
+  UserRound,
+  Gift
 } from "lucide-react"
 import { useSession } from "next-auth/react"
 import { useEffect, useState } from "react"
@@ -19,11 +20,13 @@ const navigation = [
   { name: "Plan de estudios", href: "/malla", icon: BookOpen },
   { name: "Logros académicos", href: "/logros", icon: Trophy },
   { name: "Misiones & desafíos", href: "/misiones", icon: Target },
+  { name: "Recompensas", href: "/recompensas", icon: Gift },
   { name: "Estadísticas", href: "/estadisticas", icon: BarChart3 },
 ]
 
 const teacherNavigation = [
   { name: "Acompañamiento docente", href: "/docentes", icon: Users },
+  { name: "Revisión de recompensas", href: "/docentes?section=recompensas", icon: Gift },
   { name: "Mi perfil docente", href: "/perfil-docente", icon: UserRound }
 ]
 
@@ -32,6 +35,11 @@ export function Sidebar({ isOpen, onClose }: { isOpen: boolean; onClose: () => v
   const { data: session } = useSession()
   const isTeacher = session?.user?.role === "TEACHER"
   const [points, setPoints] = useState<number | null>(null)
+  const [teacherSection, setTeacherSection] = useState<string | null>(null)
+
+  useEffect(() => {
+    setTeacherSection(new URLSearchParams(window.location.search).get("section"))
+  }, [pathname])
 
   useEffect(() => {
     if (session?.user?.role !== "STUDENT") return
@@ -96,7 +104,9 @@ export function Sidebar({ isOpen, onClose }: { isOpen: boolean; onClose: () => v
 <nav className="flex-1 overflow-y-auto px-5 pb-6 pt-4">
         <p className="mb-3 px-2 text-xs font-bold uppercase tracking-wider text-[#7893b6] dark:text-blue-300">Trayectoria académica</p>
         {(isTeacher ? teacherNavigation : navigation).map((item) => {
-          const isActive = pathname === item.href
+          const itemPath = item.href.split("?")[0]
+          const itemSection = item.href.includes("?") ? "recompensas" : null
+          const isActive = pathname === itemPath && (itemSection ? teacherSection === itemSection : !teacherSection)
           return (
             <Link
               key={item.name}

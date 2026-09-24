@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma"
-import { getCurrentSemester } from "@/lib/academic"
+import { getCreditLimit, getCurrentSemester } from "@/lib/academic"
 
 type RecommendationItem = {
   type: "CURSO_SUGERIDO" | "ALERTA_ATRASO" | "ELECTIVA_RECOMENDADA" | "MEJORA_PROMEDIO" | "RUTA_ACademica" | "RELLENAR_CREDITOS"
@@ -176,7 +176,7 @@ export async function generateRecommendations(studentProfileId: string): Promise
   const now = new Date()
   const period = `${now.getFullYear()}-${now.getMonth() < 6 ? 1 : 2}`
   const currentSemester = getCurrentSemester(profile.enrollments, profile.currentSemester, period)
-  const creditLimit = profile.averageGrade >= 4.0 ? 20 : 18
+  const creditLimit = getCreditLimit(profile.averageGrade)
   let selectedCredits = 0
   for (const enrollment of profile.enrollments) {
     if ((enrollment.status === "CURSANDO" || enrollment.status === "INSCRITO") && enrollment.semesterCode === period && enrollment.course.semester?.number === currentSemester) {

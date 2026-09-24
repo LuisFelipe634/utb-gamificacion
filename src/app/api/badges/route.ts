@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { auth } from "@/lib/auth"
-import { getMeritcoinBalance, syncMeritcoinAwardsByStudentId, syncMeritcoinBadges, syncMeritcoinTemplates } from "@/lib/meritcoin"
+import { getMeritcoinBalance, resolveCustodialWallet, syncMeritcoinAwardsByStudentId, syncMeritcoinBadges, syncMeritcoinTemplates } from "@/lib/meritcoin"
 
 export async function GET() {
   try {
@@ -23,14 +23,20 @@ export async function GET() {
       console.error("Error sincronizando plantillas Meritcoin:", error)
     }
 
-    // Reflejar insignias on-chain ganadas por el estudiante (requiere wallet)
-    // + awards por ID de Meritcoin/Moodle (funciona sin wallet y la auto-importa)
+    // Reflejar insignias on-chain ganadas por el estudiante.
+    // Adaptado a Meritcoin: la llave es meritcoinStudentId (STU-{id}).
+    // Si hay STU-x pero no wallet, se resuelve la custodial (lookup + provision) y se guarda.
+    // + awards por ID (funciona sin wallet y la auto-importa).
     let meritcoinBalance: number | null = null
     try {
       const walletOwner = await prisma.studentProfile.findUnique({
         where: { userId },
         select: { walletAddress: true, meritcoinStudentId: true },
       })
+      if (walletOwner?.meritcoinStudentId && !walletOwner.walletAddress) {
+        const resolved = await resolveCustodialWallet(userId, walletOwner.meritcoinStudentId)
+        if (resolved) walletOwner.walletAddress = resolved.walletAddress
+      }
       if (walletOwner?.meritcoinStudentId) {
         const idResult = await syncMeritcoinAwardsByStudentId(userId, walletOwner.meritcoinStudentId)
         meritcoinConnected = idResult.connected || meritcoinConnected

@@ -28,6 +28,8 @@ type CurriculumSemester = {
   semester: number
   name?: string | null
   semesterAverage: number | null
+  completedCredits?: number
+  inProgressCredits?: number
   courses: CurriculumCourse[]
 }
 
@@ -400,7 +402,7 @@ export default function MallaCurricular() {
                 className="w-full flex items-center justify-between p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
               >
                   <div className="flex items-center gap-3">
-                   <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
+                   <div className="w-8 h-8 bg-linear-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
                      <span className="text-white font-bold text-sm">{semester.semester}</span>
                    </div>
                    <div className="text-left">
@@ -408,7 +410,8 @@ export default function MallaCurricular() {
                        Semestre {semester.semester}
                      </h3>
                      <p className="text-sm text-gray-500 dark:text-gray-400">
-                       {completedCount}/{totalCount} cursos completados
+                       {completedCount}/{totalCount} cursos completados · {semester.completedCredits ?? 0} créditos aprobados
+                       {(semester.inProgressCredits ?? 0) > 0 && ` · ${semester.inProgressCredits} créditos cursando`}
                        {semester.semesterAverage != null && (
                          <span className="ml-2 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/30 text-xs font-medium text-blue-700 dark:text-blue-300">
                            ★ {semester.semesterAverage.toFixed(1)}
@@ -445,14 +448,14 @@ export default function MallaCurricular() {
                           </div>
                           <config.icon className="w-5 h-5 opacity-75" />
                         </div>
-                        {curriculum && course.id && (course.status === "available" || (course.source === "MANUAL" && (course.selected || course.status === "in_progress"))) && (
+                        {curriculum && course.id && course.status === "available" && (
                           <button
                             type="button"
                             onClick={() => toggleCourseSelection(course)}
                             disabled={selectionLoading === course.id}
                             className="mt-3 w-full rounded-lg px-3 py-2 text-sm font-semibold bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
                           >
-                            {selectionLoading === course.id ? "Actualizando..." : (course.selected || (course.status === "in_progress" && course.source === "MANUAL")) ? "Quitar del semestre" : "Agregar al semestre"}
+                            {selectionLoading === course.id ? "Actualizando..." : "Agregar al semestre"}
                           </button>
                         )}
                       </div>

@@ -22,7 +22,14 @@ export async function GET() {
     const profile = await prisma.studentProfile.findUnique({
       where: { userId },
       include: {
-        program: true,
+        program: {
+          include: {
+            semesters: {
+              include: { courses: true },
+              orderBy: { number: "asc" }
+            }
+          }
+        },
         enrollments: {
           include: { course: { include: { semester: true } } }
         },
@@ -100,17 +107,24 @@ export async function GET() {
       return acc
     }, {} as Record<string, { total: number; approved: number; credits: number; totalCredits: number }>)
 
-    // Progreso mensual (simulado - en producción vendría de datos históricos)
-    const monthlyProgress = [
-      { month: "Ene", credits: 12, grade: 4.0 },
-      { month: "Feb", credits: 15, grade: 4.1 },
-      { month: "Mar", credits: 18, grade: 4.0 },
-      { month: "Abr", credits: 22, grade: 4.2 },
-      { month: "May", credits: 25, grade: 4.1 },
-      { month: "Jun", credits: 28, grade: 4.3 },
-      { month: "Jul", credits: 30, grade: 4.2 },
-      { month: "Ago", credits: approvedCredits, grade: averageGrade }
-    ]
+    const approvedCourseIds = new Set(
+      profile.enrollments
+        .filter((enrollment) => enrollment.status === "APROBADO")
+        .map((enrollment) => enrollment.courseId)
+    )
+    const semesterProgress = profile.program.semesters.map((semester) => {
+      const totalCredits = semester.courses.reduce((total, course) => total + course.credits, 0)
+      const approvedCourses = semester.courses.filter((course) => approvedCourseIds.has(course.id))
+      const creditsApproved = approvedCourses.reduce((total, course) => total + course.credits, 0)
+
+      return {
+        semester: semester.number,
+        creditsApproved,
+        totalCredits,
+        coursesApproved: approvedCourses.length,
+        totalCourses: semester.courses.length
+      }
+    })
 
     // Calcular tendencia del promedio
     const gradeTrend = averageGrade - 4.0 // Comparar con semestre anterior
@@ -136,7 +150,7 @@ export async function GET() {
           ? Math.round((data.credits / data.totalCredits) * 100)
           : 0
       })),
-      monthlyProgress,
+      semesterProgress,
       achievements: {
         totalBadges: await prisma.badge.count({ where: { isActive: true } }),
         earnedBadges: badges.length,

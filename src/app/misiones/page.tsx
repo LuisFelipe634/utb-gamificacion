@@ -118,9 +118,10 @@ export default function Misiones() {
 
   const filteredMissions = missions.filter((mission) => {
     if (filter === "all") return true
+    if (filter === "available") return mission.status === "NO_ASIGNADA"
     if (filter === "active") return mission.status === "EN_PROGRESO" || mission.status === "PENDIENTE"
     if (filter === "completed") return mission.status === "COMPLETADA" || mission.status === "VERIFICADA"
-    if (filter === "available") return mission.status === "NO_ASIGNADA"
+    if (filter === "history") return mission.studentMissionId !== null
     return mission.type === filter
   })
 
@@ -180,7 +181,8 @@ export default function Misiones() {
           { key: "all", label: "Todas" },
           { key: "available", label: "Disponibles" },
           { key: "active", label: "Activas" },
-          { key: "completed", label: "Completadas" }
+          { key: "completed", label: "Completadas" },
+          { key: "history", label: "Historial" }
         ].map((f) => (
           <button
             key={f.key}
@@ -262,6 +264,30 @@ export default function Misiones() {
                 </div>
               )}
 
+              {/* History Details */}
+              {filter === "history" && mission.studentMissionId && (
+                <div className="mb-3 space-y-2 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                  {mission.completedAt && (
+                    <p className="text-xs text-gray-600 dark:text-gray-400">
+                      <span className="font-medium">Completada:</span> {new Date(mission.completedAt).toLocaleDateString("es-ES")}
+                    </p>
+                  )}
+                  {mission.evidence && (
+                    <p className="text-xs text-gray-600 dark:text-gray-400">
+                      <span className="font-medium">Evidencia:</span> {mission.evidence}
+                    </p>
+                  )}
+                  {mission.reviewComment && (
+                    <p className="text-xs text-gray-600 dark:text-gray-400">
+                      <span className="font-medium">Comentario docente:</span> {mission.reviewComment}
+                    </p>
+                  )}
+                  {mission.status === "EN_REVISION" && (
+                    <p className="text-xs text-amber-600 dark:text-amber-400">Pendiente de revisión docente</p>
+                  )}
+                </div>
+              )}
+
               {/* Footer */}
               <div className="flex items-center justify-between pt-3 border-t border-gray-100 dark:border-gray-700">
                 <div className="flex items-center gap-1">
@@ -269,7 +295,9 @@ export default function Misiones() {
                   <span className={`text-sm ${status.color}`}>{status.label}</span>
                 </div>
 
-                {/* Action Buttons */}
+                {/* Action Buttons (hidden in history view) */}
+                {filter !== "history" && (
+                  <>
                 {mission.status === "NO_ASIGNADA" && (
                   <button
                     onClick={() => handleMissionAction(mission.id, "accept")}
@@ -316,12 +344,14 @@ export default function Misiones() {
                       disabled={isActionLoading}
                       className="px-3 py-1 bg-purple-500 text-white text-sm rounded-lg hover:bg-purple-600 disabled:opacity-50 flex items-center gap-1"
                     >
-                      {isActionLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Check className="w-3 h-3" />{mission.autoVerify ? "Completar misión" : "Enviar a revisión"}</>}
-                    </button>
-                  </div>
+{isActionLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Check className="w-3 h-3" />{mission.autoVerify ? "Completar misión" : "Enviar a revisión"}</>}
+                      </button>
+                    </div>
+                  )}
+                </>
                 )}
+                </div>
               </div>
-            </div>
           )
         })}
       </div>

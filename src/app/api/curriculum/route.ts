@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
-import { getCurrentSemester } from "@/lib/academic"
+import { getCreditLimit, getCurrentSemester } from "@/lib/academic"
 
 function currentPeriod() {
   const now = new Date()
@@ -56,7 +56,7 @@ export async function GET() {
       .filter((enrollment) => enrollment.status === "CURSANDO" && enrollment.semesterCode === period && enrollment.course.semester?.number === currentSemester)
       .reduce((total, enrollment) => total + enrollment.course.credits, 0)
 
-    const creditLimit = profile.averageGrade >= 4.0 ? 20 : 18
+    const creditLimit = getCreditLimit(profile.averageGrade)
 
     // Promedio ponderado por créditos (mismo método que averageGrade del perfil)
     const gradesBySemester = new Map<number, { weightedSum: number; credits: number }>()
@@ -73,21 +73,31 @@ export async function GET() {
     const semesters = profile.program.semesters.map((semester) => {
       const entry = gradesBySemester.get(semester.number)
       const semesterAverage = entry && entry.credits > 0 ? Math.round((entry.weightedSum / entry.credits) * 100) / 100 : null
+      const courses = semester.courses.map((course) => {
+        const enrollment = enrollmentByCourse.get(course.id)
+        const status = enrollment?.status === "APROBADO" ? "completed" :
+          enrollment?.status === "CURSANDO" ? "in_progress" :
+            enrollment?.status === "REPROBADO" ? "available" : "blocked"
+        const prerequisitesMet = course.prerequisites.every(({ prerequisite }) => approvedIds.has(prerequisite.id))
+        const missingPrerequisites = course.prerequisites
+          .filter(({ prerequisite }) => !approvedIds.has(prerequisite.id))
+          .map(({ prerequisite }) => `${prerequisite.code} - ${prerequisite.name}`)
+        return { id: course.id, code: course.code, name: course.name, credits: course.credits, status: status === "blocked" && prerequisitesMet ? "available" : status, grade: enrollment?.grade ?? null, selected: selectedIds.has(course.id), source: enrollment?.source ?? null, inCurrentPeriod: enrollment ? enrollment.semesterCode === period : false, prerequisitesMet, missingPrerequisites }
+      })
+      const completedCredits = courses
+        .filter((course) => course.status === "completed")
+        .reduce((total, course) => total + course.credits, 0)
+      const inProgressCredits = courses
+        .filter((course) => course.status === "in_progress" && course.inCurrentPeriod)
+        .reduce((total, course) => total + course.credits, 0)
+
       return {
         semester: semester.number,
         name: semester.name,
         semesterAverage,
-        courses: semester.courses.map((course) => {
-          const enrollment = enrollmentByCourse.get(course.id)
-          const status = enrollment?.status === "APROBADO" ? "completed" :
-            enrollment?.status === "CURSANDO" ? "in_progress" :
-              enrollment?.status === "REPROBADO" ? "available" : "blocked"
-          const prerequisitesMet = course.prerequisites.every(({ prerequisite }) => approvedIds.has(prerequisite.id))
-          const missingPrerequisites = course.prerequisites
-            .filter(({ prerequisite }) => !approvedIds.has(prerequisite.id))
-            .map(({ prerequisite }) => `${prerequisite.code} - ${prerequisite.name}`)
-          return { id: course.id, code: course.code, name: course.name, credits: course.credits, status: status === "blocked" && prerequisitesMet ? "available" : status, grade: enrollment?.grade ?? null, selected: selectedIds.has(course.id), source: enrollment?.source ?? null, inCurrentPeriod: enrollment ? enrollment.semesterCode === period : false, prerequisitesMet, missingPrerequisites }
-        })
+        completedCredits,
+        inProgressCredits,
+        courses
       }
     })
 
@@ -121,7 +131,7 @@ export async function POST(request: Request) {
     // Inscripción del periodo vigente en cualquier estado (para no violar @@unique)
     const periodEnrollment = profile.enrollments.find((enrollment) => enrollment.courseId === courseId && enrollment.semesterCode === period && enrollment.status !== "APROBADO")
 
-    const creditLimit = profile.averageGrade >= 4.0 ? 20 : 18
+    const creditLimit = getCreditLimit(profile.averageGrade)
 
     if (selected && !existing) {
       const credits = currentEnrollments.reduce((total, enrollment) => total + enrollment.course.credits, 0) + course.credits

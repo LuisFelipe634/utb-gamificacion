@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { auth } from "@/lib/auth"
+import { getAverageGrade } from "@/lib/academic"
+import { verifyMission } from "@/lib/missionVerification"
 
 // GET: Obtener misiones del estudiante
 export async function GET() {
@@ -206,6 +208,19 @@ export async function POST(request: Request) {
         )
       }
 
+      let startMetadata: string | null = null
+      try {
+        startMetadata = await buildStartMetadata(mission, userId)
+      } catch (metaError) {
+        console.error("Error en buildStartMetadata:", metaError)
+        if (process.env.NODE_ENV === "development") {
+          return NextResponse.json(
+            { error: "Error al preparar la misión", details: metaError instanceof Error ? metaError.message : String(metaError) },
+            { status: 500 }
+          )
+        }
+      }
+
       const studentMission = await prisma.studentMission.update({
         where: { id: existingMission.id },
         data: {
@@ -213,6 +228,7 @@ export async function POST(request: Request) {
           progress: 0,
           completedAt: null,
           evidence: null,
+          metadata: startMetadata,
           verifiedBy: null,
           verifiedAt: null,
           reviewComment: null
@@ -238,6 +254,29 @@ export async function POST(request: Request) {
         )
       }
 
+      // Verificación automática por regla académica
+      let verificationMessage: string | null = null
+      if (mission.autoVerify && mission.verificationKey) {
+        const verification = await verifyMission(
+          mission,
+          userId,
+          existingMission.metadata
+        )
+
+        if (!verification.passed) {
+          return NextResponse.json(
+            {
+              error: "Tu misión aún no cumple la condición de verificación automática.",
+              message: verification.message,
+              progress: verification.progress
+            },
+            { status: 400 }
+          )
+        }
+
+        verificationMessage = verification.message
+      }
+
       const studentMission = await prisma.$transaction(async (transaction) => {
         const completedMission = await transaction.studentMission.update({
           where: { id: existingMission.id },
@@ -245,7 +284,11 @@ export async function POST(request: Request) {
             status: mission.autoVerify ? "COMPLETADA" : "EN_REVISION",
             progress: 100,
             completedAt: new Date(),
-            evidence: mission.autoVerify ? "Cumplimiento registrado automáticamente" : submittedEvidence
+            evidence: mission.autoVerify
+              ? verificationMessage
+                ? `Cumplimiento registrado automáticamente — ${verificationMessage}`
+                : "Cumplimiento registrado automáticamente"
+              : submittedEvidence
           }
         })
 
@@ -284,10 +327,34 @@ export async function POST(request: Request) {
     )
   } catch (error) {
     console.error("Error processing mission:", error)
+    if (process.env.NODE_ENV === "development") {
+      return NextResponse.json(
+        { error: "Error interno del servidor", details: error instanceof Error ? error.message : String(error) },
+        { status: 500 }
+      )
+    }
     return NextResponse.json(
       { error: "Error interno del servidor" },
       { status: 500 }
     )
   }
+}
+
+// Captura la línea base (ej. promedio al inicio del período) para reglas de verificación automática
+async function buildStartMetadata(mission: { verificationKey: string | null }, userId: string): Promise<string | null> {
+  if (mission.verificationKey !== "MEJORAR_PROMEDIO") return null
+
+  const profile = await prisma.studentProfile.findUnique({
+    where: { userId },
+    include: {
+      enrollments: { include: { course: true } },
+      academicHistory: true,
+    },
+  })
+
+  if (!profile) return null
+
+  const initialAverage = getAverageGrade(profile.academicHistory, profile.enrollments, profile.averageGrade)
+  return JSON.stringify({ initialAverage })
 }
 

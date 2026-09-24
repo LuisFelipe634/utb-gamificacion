@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { getAverageGrade, getCurrentSemester } from "@/lib/academic"
-import { auth } from "@/lib/auth"
 import { calculateStreak } from "@/lib/streak"
+import { normalizeMeritcoinStudentId } from "@/lib/meritcoin"
+import { recordDailyAcademicActivity } from "@/lib/activity"
+import { requireRole, jsonUnauthorized, jsonForbidden } from "@/lib/session"
 
 export async function GET() {
   function currentPeriod() {
@@ -11,22 +13,22 @@ export async function GET() {
   }
 
   try {
-    const session = await auth()
+    const session = await requireRole("STUDENT")
 
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "No autorizado" }, { status: 401 })
+    if (session.error) {
+      return session.status === 401 ? jsonUnauthorized(session.error) : jsonForbidden(session.error)
     }
 
-    if (session.user.role !== "STUDENT") {
-      return NextResponse.json({ error: "Esta información es exclusiva para estudiantes" }, { status: 403 })
+    const userId = session.data?.userId
+    if (!userId) {
+      return jsonUnauthorized("No autorizado")
     }
 
-    const userId = session.user.id as string
     const todayStart = new Date()
     todayStart.setUTCHours(0, 0, 0, 0)
     const todayActivity = await prisma.activity.findFirst({ where: { userId, action: "ACADEMIC_DAILY_ACTIVITY", createdAt: { gte: todayStart } } })
     if (!todayActivity) {
-      await prisma.activity.create({ data: { userId, action: "ACADEMIC_DAILY_ACTIVITY", details: { source: "student_profile" } } })
+      await recordDailyAcademicActivity(userId, "student_profile")
     }
 
     const user = await prisma.user.findUnique({
@@ -164,14 +166,15 @@ export async function GET() {
 // (wallet Ethereum y/o ID de estudiante en Meritcoin/Moodle)
 export async function PATCH(request: Request) {
   try {
-    const session = await auth()
+    const session = await requireRole("STUDENT")
 
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "No autorizado" }, { status: 401 })
+    if (session.error) {
+      return session.status === 401 ? jsonUnauthorized(session.error) : jsonForbidden(session.error)
     }
 
-    if (session.user.role !== "STUDENT") {
-      return NextResponse.json({ error: "Solo los estudiantes pueden actualizar su vínculo Meritcoin" }, { status: 403 })
+    const userId = session.data?.userId
+    if (!userId) {
+      return jsonUnauthorized("No autorizado")
     }
 
     const body = await request.json()
@@ -184,24 +187,31 @@ export async function PATCH(request: Request) {
     }
 
     if (meritcoinStudentId !== undefined && meritcoinStudentId !== null && meritcoinStudentId !== "") {
-      if (typeof meritcoinStudentId !== "string" || meritcoinStudentId.trim().length > 100) {
-        return NextResponse.json({ error: "ID de Meritcoin inválido" }, { status: 400 })
+      if (typeof meritcoinStudentId !== "string" || normalizeMeritcoinStudentId(meritcoinStudentId) === null) {
+        return NextResponse.json({ error: "ID de Meritcoin inválido (usa formato STU-3 o el número de Moodle)" }, { status: 400 })
       }
     }
 
     const data: { walletAddress?: string | null; meritcoinStudentId?: string | null } = {}
     if (walletAddress !== undefined) data.walletAddress = !walletAddress ? null : (walletAddress as string).trim()
     if (meritcoinStudentId !== undefined) {
-      data.meritcoinStudentId = !meritcoinStudentId ? null : (meritcoinStudentId as string).trim()
+      data.meritcoinStudentId = !meritcoinStudentId ? null : normalizeMeritcoinStudentId(meritcoinStudentId as string)
     }
 
-    const profile = await prisma.studentProfile.update({
-      where: { userId: session.user.id as string },
-      data,
-      select: { walletAddress: true, meritcoinStudentId: true },
-    })
+    try {
+      const profile = await prisma.studentProfile.update({
+        where: { userId },
+        data,
+        select: { walletAddress: true, meritcoinStudentId: true },
+      })
 
-    return NextResponse.json({ walletAddress: profile.walletAddress, meritcoinStudentId: profile.meritcoinStudentId })
+      return NextResponse.json({ walletAddress: profile.walletAddress, meritcoinStudentId: profile.meritcoinStudentId })
+    } catch (error) {
+      if (typeof error === "object" && error !== null && "code" in error && (error as { code: string }).code === "P2002") {
+        return NextResponse.json({ error: "Ese ID de Meritcoin (STU-x) ya está vinculado a otro estudiante" }, { status: 409 })
+      }
+      throw error
+    }
   } catch (error) {
     console.error("Error updating wallet:", error)
     return NextResponse.json(

@@ -16,11 +16,64 @@ Sistema web que permite a los estudiantes visualizar su progreso en la malla cur
 |------|-----------|
 | Framework | Next.js 16.3.2 (App Router) |
 | UI | React 19, Tailwind CSS 4 |
-| Base de datos | PostgreSQL 7.9.1 |
+| Base de datos | PostgreSQL |
 | ORM | Prisma 7.9.1 |
 | Autenticacion | NextAuth.js 5 (beta, JWT + Credentials) |
 | Iconos | Lucide React |
 | Temas | next-themes (modo claro/oscuro) |
+
+---
+
+## Arquitectura Backend y APIs
+
+El proyecto usa Next.js como frontend y backend integrado mediante App Router. Las rutas dentro de `src/app/api` son la API privada de la aplicación: autentican al usuario, ejecutan reglas de negocio y consultan PostgreSQL mediante Prisma.
+
+```text
+Navegador
+  |
+  v
+Next.js App Router
+  |-- paginas y componentes React
+  |-- NextAuth: autenticacion y sesiones
+  `-- /api/*: endpoints del backend
+       |
+       v
+    Prisma Client
+       |
+       v
+    PostgreSQL
+```
+
+### Capas del backend
+
+| Capa | Ubicacion | Responsabilidad |
+|---|---|---|
+| Rutas HTTP | `src/app/api/**/route.ts` | Autenticacion, validacion de entrada y respuestas JSON. |
+| Servicios de dominio | `src/lib` | Promedios, semestre actual, recomendaciones, rachas, actividad y Meritcoin. |
+| Persistencia | `src/lib/prisma.ts` | Cliente Prisma y conexion a PostgreSQL. |
+| Modelo de datos | `prisma/schema.prisma` | Usuarios, cursos, matrículas, notas, misiones, recompensas y logros. |
+| Datos iniciales | `prisma/seed.ts` | Usuarios, malla curricular y escenarios de prueba. |
+
+### Catalogo de APIs
+
+| Endpoint | Metodos | Funcion |
+|---|---|---|
+| `/api/auth/[...nextauth]` | GET, POST | Inicio y gestion de sesiones. |
+| `/api/student` | GET, PATCH | Perfil del estudiante y vinculo Meritcoin. |
+| `/api/curriculum` | GET, POST | Malla, estados, prerrequisitos y seleccion de cursos. |
+| `/api/stats` | GET | Creditos, promedio, avance por semestre y gamificacion. |
+| `/api/missions` | GET, POST | Misiones del estudiante y evidencias. |
+| `/api/rewards` | GET, POST | Catalogo y solicitudes de recompensas con curso objetivo. |
+| `/api/badges` | GET | Insignias disponibles y obtenidas. |
+| `/api/badges/award` | POST | Emision de insignias. |
+| `/api/notifications` | GET, PATCH, DELETE | Consulta y gestion de notificaciones. |
+| `/api/recommendations` | GET, PATCH | Recomendaciones academicas. |
+| `/api/search` | GET | Busqueda global. |
+| `/api/teacher` | GET, PATCH | Acompanamiento docente y revision de misiones. |
+| `/api/teacher/rewards` | GET, PATCH | Revision e historial de recompensas por curso. |
+| `/api/teacher/notify` | POST | Envio de rutas recomendadas. |
+
+Las rutas protegidas usan la sesion de NextAuth y validan el rol requerido (`STUDENT` o `TEACHER`) antes de consultar o modificar datos.
 
 ---
 

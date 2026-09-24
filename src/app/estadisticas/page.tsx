@@ -30,10 +30,12 @@ interface StatsData {
     totalCredits: number
     percentage: number
   }>
-  monthlyProgress: Array<{
-    month: string
-    credits: number
-    grade: number
+  semesterProgress: Array<{
+    semester: number
+    creditsApproved: number
+    totalCredits: number
+    coursesApproved: number
+    totalCourses: number
   }>
   achievements: {
     totalBadges: number
@@ -108,9 +110,13 @@ export default function Estadisticas() {
   const courseProgress = Math.round(
     (stats.overall.coursesCompleted / stats.overall.totalCourses) * 100
   )
+  const maxApprovedCredits = Math.max(
+    ...stats.semesterProgress.map((semester) => semester.creditsApproved),
+    1
+  )
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-6">
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Estadísticas</h1>
@@ -120,7 +126,7 @@ export default function Estadisticas() {
       </div>
 
       {/* Main Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="order-2 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xs p-5 border border-gray-200 dark:border-gray-700">
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-xl flex items-center justify-center">
@@ -205,7 +211,7 @@ export default function Estadisticas() {
       </div>
 
       {/* Charts Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="order-4 grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Progress by Category */}
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xs p-6 border border-gray-200 dark:border-gray-700">
           <h2 className="font-semibold text-gray-900 dark:text-white mb-4">
@@ -222,7 +228,7 @@ export default function Estadisticas() {
                 </div>
                 <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
                   <div
-                    className="h-full bg-gradient-to-r from-blue-500 to-purple-600 rounded-full"
+                    className="h-full bg-linear-to-r from-blue-500 to-purple-600 rounded-full"
                     style={{ width: `${category.percentage}%` }}
                   />
                 </div>
@@ -280,36 +286,52 @@ export default function Estadisticas() {
       </div>
 
       {/* Semester Progress */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xs p-6 border border-gray-200 dark:border-gray-700">
+      <div className="order-3 bg-white dark:bg-gray-800 rounded-xl shadow-xs p-6 border border-gray-200 dark:border-gray-700">
         <h2 className="font-semibold text-gray-900 dark:text-white mb-4">
-          Progreso por Semestre
+          Créditos aprobados por semestre
         </h2>
         <div className="flex items-end justify-between h-40">
-          {stats.monthlyProgress.map((month) => {
-            const height = (month.credits / 35) * 100
+          {stats.semesterProgress.map((semester) => {
+            const percentage = semester.totalCredits > 0
+              ? Math.round((semester.creditsApproved / semester.totalCredits) * 100)
+              : 0
+            const height = Math.max(
+              Math.round((semester.creditsApproved / maxApprovedCredits) * 100),
+              semester.creditsApproved > 0 ? 8 : 0
+            )
             return (
-              <div key={month.month} className="flex flex-col items-center flex-1">
+              <div key={semester.semester} className="flex h-full flex-1 min-w-0 flex-col items-center justify-end">
+                <span className="mb-1 text-[11px] font-semibold text-blue-700 dark:text-blue-300">
+                  {semester.creditsApproved} cr
+                </span>
                 <div
-                  className="w-full max-w-[40px] bg-gradient-to-t from-blue-500 to-purple-600 rounded-t-lg transition-all duration-500"
+                  className="w-full max-w-10 bg-linear-to-t from-blue-500 to-cyan-400 rounded-t-lg transition-all duration-500"
                   style={{ height: `${height}%` }}
+                  title={`Semestre ${semester.semester}: ${semester.creditsApproved}/${semester.totalCredits} créditos aprobados (${percentage}%)`}
                 />
                 <span className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-                  {month.month}
+                  S{semester.semester}
+                </span>
+                <span className="text-[11px] text-gray-400 dark:text-gray-500">
+                  {semester.creditsApproved}/{semester.totalCredits} cr
                 </span>
               </div>
             )
           })}
         </div>
         <div className="mt-4 flex items-center justify-center gap-4 text-sm text-gray-500 dark:text-gray-400">
-          <span>Créditos acumulados por mes</span>
+          <span>Créditos aprobados por semestre</span>
         </div>
       </div>
 
       {/* Points by Source */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xs p-6 border border-gray-200 dark:border-gray-700">
-        <h2 className="font-semibold text-gray-900 dark:text-white mb-4">
-          Puntos por Fuente
+      <div className="order-6 bg-white dark:bg-gray-800 rounded-xl shadow-xs p-6 border border-gray-200 dark:border-gray-700">
+        <h2 className="font-semibold text-gray-900 dark:text-white mb-1">
+          Distribución de puntos
         </h2>
+        <p className="mb-4 text-sm text-gray-500 dark:text-gray-400">
+          Indica de qué actividades provienen tus puntos de gamificación.
+        </p>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {stats.pointsBySource.map((source) => (
             <div key={source.source} className="text-center p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
@@ -329,7 +351,7 @@ export default function Estadisticas() {
       </div>
 
       {/* Achievements Summary */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xs p-6 border border-gray-200 dark:border-gray-700">
+      <div className="order-5 bg-white dark:bg-gray-800 rounded-xl shadow-xs p-6 border border-gray-200 dark:border-gray-700">
         <h2 className="font-semibold text-gray-900 dark:text-white mb-4">
           Resumen de Logros
         </h2>

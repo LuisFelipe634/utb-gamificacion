@@ -1,23 +1,24 @@
 import { calculateStreak } from "@/lib/streak"
 import { NextResponse } from "next/server"
-import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { getAverageGrade, getCurrentSemester } from "@/lib/academic"
+import { requireRole, jsonUnauthorized, jsonForbidden } from "@/lib/session"
 
 export async function GET() {
-  const session = await auth()
+  const session = await requireRole("TEACHER")
 
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "No autorizado" }, { status: 401 })
+  if (session.error) {
+    return session.status === 401 ? jsonUnauthorized(session.error) : jsonForbidden(session.error)
   }
 
-  if (session.user.role !== "TEACHER") {
-    return NextResponse.json({ error: "Acceso exclusivo para docentes" }, { status: 403 })
+  const teacherUserId = session.data?.userId
+  if (!teacherUserId) {
+    return jsonUnauthorized("No autorizado")
   }
 
   try {
     const teacher = await prisma.user.findUnique({
-      where: { id: session.user.id },
+      where: { id: teacherUserId },
       include: {
         teacherProfile: {
           include: {
@@ -119,9 +120,22 @@ export async function GET() {
         name: student.name,
         studentCode: student.studentCode,
         averageGrade: student.averageGrade,
-        totalCredits: student.totalCredits
+        totalCredits: student.totalCredits,
+        risk: student.risk
       }))
     }))
+
+    const missionHistory = await prisma.studentMission.findMany({
+      where: { studentId: { in: students.map((student) => student.id) }, status: "VERIFICADA" },
+      include: {
+        mission: true,
+        student: {
+          select: { id: true, name: true, studentProfile: { select: { studentCode: true } } }
+        }
+      },
+      orderBy: { verifiedAt: "desc" },
+      take: 50
+    })
 
     return NextResponse.json({
       teacher: teacher ? {
@@ -133,7 +147,16 @@ export async function GET() {
       } : null,
       courses,
       students: data,
-      pendingMissions: data.flatMap((student) => student.pendingMissions.map((mission) => ({ ...mission, studentId: student.id, studentName: student.name, studentCode: student.studentCode })))
+      pendingMissions: data.flatMap((student) => student.pendingMissions.map((mission) => ({ ...mission, studentId: student.id, studentName: student.name, studentCode: student.studentCode }))),
+      missionHistory: missionHistory.map((historyItem) => ({
+        id: historyItem.id,
+        studentId: historyItem.student.id,
+        studentName: historyItem.student.name,
+        studentCode: historyItem.student.studentProfile?.studentCode,
+        title: historyItem.mission.title,
+        points: historyItem.mission.pointsReward,
+        verifiedAt: historyItem.verifiedAt
+      }))
     })
   } catch (error) {
     console.error("Error fetching teacher data:", error)
@@ -142,13 +165,15 @@ export async function GET() {
 }
 
 export async function PATCH(request: Request) {
-  const session = await auth()
+  const session = await requireRole("TEACHER")
 
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "No autorizado" }, { status: 401 })
+  if (session.error) {
+    return session.status === 401 ? jsonUnauthorized(session.error) : jsonForbidden(session.error)
   }
-  if (session.user.role !== "TEACHER") {
-    return NextResponse.json({ error: "Acceso exclusivo para docentes" }, { status: 403 })
+
+  const teacherUserId = session.data?.userId
+  if (!teacherUserId) {
+    return jsonUnauthorized("No autorizado")
   }
 
   try {
@@ -172,7 +197,7 @@ export async function PATCH(request: Request) {
         where: { id: studentMissionId },
         data: {
           status: approved ? "VERIFICADA" : "RECHAZADA",
-          verifiedBy: session.user.id,
+          verifiedBy: teacherUserId,
           verifiedAt: new Date(),
           reviewComment: typeof comment === "string" ? comment.trim() || null : null
         }
@@ -183,7 +208,7 @@ export async function PATCH(request: Request) {
           data: { userId: studentMission.studentId, amount: studentMission.mission.pointsReward, source: "MISION_COMPLETADA", description: `Misión verificada: ${studentMission.mission.title}` }
         })
         await transaction.activity.create({
-          data: { userId: studentMission.studentId, action: "MISION_VERIFICADA", details: { missionId: studentMission.missionId, reviewedBy: session.user.id, pointsEarned: studentMission.mission.pointsReward } }
+          data: { userId: studentMission.studentId, action: "MISION_VERIFICADA", details: { missionId: studentMission.missionId, reviewedBy: teacherUserId, pointsEarned: studentMission.mission.pointsReward } }
         })
       }
 

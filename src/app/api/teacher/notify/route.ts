@@ -1,11 +1,19 @@
 import { NextResponse } from "next/server"
-import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { recordUserActivity, ACTIVITY_ACTIONS } from "@/lib/activity"
+import { requireRole, jsonUnauthorized, jsonForbidden } from "@/lib/session"
 
 export async function POST(request: Request) {
-  const session = await auth()
-  if (!session?.user?.id) return NextResponse.json({ error: "No autorizado" }, { status: 401 })
-  if (session.user.role !== "TEACHER") return NextResponse.json({ error: "Acceso exclusivo para docentes" }, { status: 403 })
+  const session = await requireRole("TEACHER")
+
+  if (session.error) {
+    return session.status === 401 ? jsonUnauthorized(session.error) : jsonForbidden(session.error)
+  }
+
+  const teacherUserId = session.data?.userId
+  if (!teacherUserId) {
+    return jsonUnauthorized("No autorizado")
+  }
 
   try {
     const body = await request.json()
@@ -17,7 +25,7 @@ export async function POST(request: Request) {
 
     // Verificar que el docente tiene asignado al estudiante
     const teacher = await prisma.user.findUnique({
-      where: { id: session.user.id },
+      where: { id: teacherUserId },
       include: { teacherProfile: { include: { assignedCourses: true } } },
     })
     const assignedCourseIds = teacher?.teacherProfile?.assignedCourses.map((a) => a.courseId) || []
@@ -78,17 +86,11 @@ export async function POST(request: Request) {
       },
     })
 
-    await prisma.activity.create({
-      data: {
-        userId: student.id,
-        action: "RUTA_RECOMENDADA_DOCENTE",
-        details: {
-          teacherId: session.user.id,
-          studentId: student.id,
-          suggestedCourses: suggestedCourses.map((c) => ({ code: c.code, name: c.name, credits: c.credits, semester: c.semester.number })),
-          notificationId: notification.id,
-        },
-      },
+    await recordUserActivity(student.id, ACTIVITY_ACTIONS.ROUTE_RECOMMENDED_DOCENTE, {
+      teacherId: teacherUserId,
+      studentId: student.id,
+      suggestedCourses: suggestedCourses.map((c) => ({ code: c.code, name: c.name, credits: c.credits, semester: c.semester.number })),
+      notificationId: notification.id,
     })
 
     return NextResponse.json({ success: true, notification })
