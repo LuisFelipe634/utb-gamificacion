@@ -57,7 +57,7 @@ Next.js App Router (src/app/layout.tsx -> AppShell -> Sidebar/Header)
 | Dominio | `src/lib/` | `academic.ts` (promedio, semestre actual, tope créditos), `recommendations.ts`, `streak.ts`, `activity.ts` (`ACTIVITY_ACTIONS`, racha diaria), `missionRules.ts` + `missionVerification.ts` (auto-verificación), `meritcoin.ts` (espejo + emisión on-chain). |
 | Persistencia | `src/lib/prisma.ts` | Singleton `PrismaClient` + `PrismaPg`. En dev se reutiliza vía `globalThis`. |
 | Modelo | `prisma/schema.prisma` | 22 modelos: usuarios, malla, progreso, gamificación, recompensas, notificaciones, riesgo, Meritcoin. |
-| Datos | `prisma/seed.ts`, `prisma/seed.demo.ts`, `prisma/backfill-meritcoin-ids.ts` | Seed base (programa ISCO 2019, 10 semestres, 55 cursos, 162 créditos, niveles, misiones, badges, rewards + demo@utb.edu.co), seed demo end-to-end aislado, backfill de `STU-{id}`. |
+| Datos | `prisma/seed.ts`, `prisma/backfill-meritcoin-ids.ts` | Seed base (programa ISCO 2019, 10 semestres, 55 cursos, 162 créditos, niveles, misiones, badges, rewards + demo@utb.edu.co), backfill de `STU-{id}`. |
 
 ### Catálogo de APIs
 
@@ -160,7 +160,6 @@ utb-gamificacion/
     schema.prisma            # 22 modelos
     migrations/              # Migraciones SQL
     seed.ts                  # Seed base: ISCO 2019 + usuarios demo
-    seed.demo.ts             # Seed demo end-to-end aislado (npm run db:seed:demo)
     backfill-meritcoin-ids.ts# Rellena STU-{id} faltantes (npm run db:backfill-meritcoin)
   src/
     middleware.ts            # Guard de páginas -> /login
@@ -232,9 +231,7 @@ Sin `MERITCOIN_*` la app funciona local; solo falla el espejo/emisión on-chain.
 ```bash
 npm run db:generate
 npm run db:push
-npm run db:seed        # base
-# o:
-npm run db:seed:demo   # caso demo end-to-end (resetea, solo pruebas)
+npm run db:seed        # seed base (tsx prisma/seed.ts)
 npm run db:backfill-meritcoin  # rellena meritcoinStudentId STU-{id} faltantes
 ```
 
@@ -247,11 +244,9 @@ npm run dev
 
 ---
 
-## Credenciales de Prueba
+## Credenciales de Prueba (`npm run db:seed` → `prisma/seed.ts`)
 
 El email debe terminar en `@utb.edu.co` (validado en `src/lib/auth.ts`).
-
-### Seed base (`npm run db:seed` → `prisma/seed.ts`)
 
 | Rol | Email | Contraseña | Nombre / uso |
 |---|---|---|---|
@@ -259,19 +254,6 @@ El email debe terminar en `@utb.edu.co` (validado en `src/lib/auth.ts`).
 | STUDENT | demo2@utb.edu.co | demo1234 | Sara Peña — 8vo semestre, 113 créditos |
 | STUDENT | juanito@utb.edu.co | demo1234 | Angela Lemus — 3er semestre, 60 créditos |
 | TEACHER | docente@utb.edu.co | demo123 | María González — cursos H01A, M01A, C02A, C04A |
-
-### Seed demo (`npm run db:seed:demo` → `prisma/seed.demo.ts`, resetea la DB)
-
-Todos usan contraseña `demo123`:
-
-| Rol | Email | Uso |
-|---|---|---|
-| TEACHER | docente@utb.edu.co | Ve a Laura, Diego y Sofía (C02A-C05A) |
-| TEACHER | carlos.ruiz@utb.edu.co | Ve solo a Miguel (M01A, M03A, A02A) |
-| STUDENT | laura.avanzado@utb.edu.co | Caso avanzado: 1520 pts, historial completo |
-| STUDENT | diego.riesgo@utb.edu.co | Caso riesgo: promedio 2.8 + reprobado actual |
-| STUDENT | sofia.nueva@utb.edu.co | Caso limpio: onboarding desde cero |
-| STUDENT | miguel.torres@utb.edu.co | Caso aislamiento docente 2 |
 
 ---
 
@@ -288,7 +270,6 @@ npm run start            # Servidor producción
 npm run db:generate      # Generar cliente Prisma
 npm run db:push          # Sincronizar schema (sin migraciones)
 npm run db:seed          # Seed base (tsx prisma/seed.ts)
-npm run db:seed:demo     # Seed demo end-to-end
 npm run db:backfill-meritcoin # Backfill STU-{id}
 npm run db:reset         # push --force-reset + seed base
 npm run db:studio        # Prisma Studio GUI
