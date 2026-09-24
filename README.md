@@ -247,14 +247,31 @@ npm run dev
 
 ---
 
-## Credenciales de Prueba (seed base)
+## Credenciales de Prueba
 
-| Campo | Valor |
-|-------|-------|
-| Email estudiante | demo@utb.edu.co |
-| Contraseña | demo123 |
+El email debe terminar en `@utb.edu.co` (validado en `src/lib/auth.ts`).
 
-El email debe terminar en `@utb.edu.co`. El seed demo (`db:seed:demo`) crea más usuarios/roles y escenarios (misiones y canjes en cada estado); ver cabecera de `prisma/seed.demo.ts`.
+### Seed base (`npm run db:seed` → `prisma/seed.ts`)
+
+| Rol | Email | Contraseña | Nombre / uso |
+|---|---|---|---|
+| STUDENT | demo@utb.edu.co | demo123 | Juan Pérez — 6to semestre, 95 créditos |
+| STUDENT | demo2@utb.edu.co | demo1234 | Sara Peña — 8vo semestre, 113 créditos |
+| STUDENT | juanito@utb.edu.co | demo1234 | Angela Lemus — 3er semestre, 60 créditos |
+| TEACHER | docente@utb.edu.co | demo123 | María González — cursos H01A, M01A, C02A, C04A |
+
+### Seed demo (`npm run db:seed:demo` → `prisma/seed.demo.ts`, resetea la DB)
+
+Todos usan contraseña `demo123`:
+
+| Rol | Email | Uso |
+|---|---|---|
+| TEACHER | docente@utb.edu.co | Ve a Laura, Diego y Sofía (C02A-C05A) |
+| TEACHER | carlos.ruiz@utb.edu.co | Ve solo a Miguel (M01A, M03A, A02A) |
+| STUDENT | laura.avanzado@utb.edu.co | Caso avanzado: 1520 pts, historial completo |
+| STUDENT | diego.riesgo@utb.edu.co | Caso riesgo: promedio 2.8 + reprobado actual |
+| STUDENT | sofia.nueva@utb.edu.co | Caso limpio: onboarding desde cero |
+| STUDENT | miguel.torres@utb.edu.co | Caso aislamiento docente 2 |
 
 ---
 

@@ -1,6 +1,6 @@
 # Backend — `src/app/api`
 
-API privada de UTB Gamificación construida con Next.js App Router (Route Handlers `route.ts`). Autentica con NextAuth, autoriza por rol y persiste en PostgreSQL vía Prisma. Lógica de dominio en `src/lib/*`.
+API privada de UTB Gamificación construida con Next.js App Router (Route Handlers `route.ts`). Autentica con NextAuth, autoriza por rol y persiste en PostgreSQL vía Prisma. Lógica de dominio en `src/lib/*`. 
 
 ## Estructura
 

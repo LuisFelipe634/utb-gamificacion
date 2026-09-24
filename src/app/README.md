@@ -1,6 +1,6 @@
 # App (frontend) — `src/app`
 
-Frontend con Next.js App Router. Todas las páginas son Client Components (`"use client"`) que consumen la API de `src/app/api/*` con `fetch` y muestran estado con Tailwind + lucide-react. El layout global monta proveedores y el shell con navegación por rol.
+Frontend con Next.js App Router. Todas las páginas son Client Components (`"use client"`) que consumen la API de `src/app/api/*` con `fetch` y muestran estado con Tailwind + lucide-react. El layout global monta proveedores y el shell con navegación por rol. 
 
 ## Estructura
 
@@ -63,4 +63,4 @@ public/utb-logotipo.png # Logo usado en Sidebar/Login
 - Nuevas páginas: carpeta `src/app/<ruta>/page.tsx` con `"use client"`, fetch a `/api/*`, estados `loading/error/data`, iconos lucide-react.
 - Rutas de estudiante en español (`/malla`, `/logros`), de docente (`/docentes`, `/perfil-docente`).
 - No llamar a Prisma ni a `MERITCOIN_*` desde páginas: siempre pasar por `/api`.
-- Proteger la página también en `middleware.ts`/`AppShell` si es privada, además del `requireRole` del API.
+- Proteger la página también en `middleware.ts`/`AppShell` si es privada, además del `requireRole` del API
