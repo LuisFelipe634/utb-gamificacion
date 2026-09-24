@@ -43,3 +43,7 @@ yarn-error.log*
 next-env.d.ts
 
 /src/generated/prisma
+
+# Archivos generados por Next.js para agentes locales
+/AGENTS.md
+/CLAUDE.md

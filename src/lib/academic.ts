@@ -79,3 +79,7 @@ export function getAverageGrade(
 
   return fallback
 }
+
+export function getCreditLimit(averageGrade: number): number {
+  return averageGrade >= 4.0 ? 20 : 18
+}

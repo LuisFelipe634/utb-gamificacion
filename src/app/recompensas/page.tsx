@@ -35,7 +35,21 @@ interface Reward {
     reviewedAt: string | null
     reviewNote: string | null
     expiresAt: string | null
+    course: {
+      id: string
+      code: string
+      name: string
+      semester: number
+    }
   } | null
+}
+
+interface EnrolledCourse {
+  id: string
+  code: string
+  name: string
+  semester: number
+  period: string
 }
 
 interface RewardStats {
@@ -69,6 +83,8 @@ export default function Recompensas() {
   const [redeemingId, setRedeemingId] = useState<string | null>(null)
   const [evidence, setEvidence] = useState<Record<string, string>>({})
   const [error, setError] = useState("")
+  const [enrolledCourses, setEnrolledCourses] = useState<EnrolledCourse[]>([])
+  const [targetCourse, setTargetCourse] = useState<Record<string, string>>({})
 
   const fetchRewards = async () => {
     try {
@@ -77,6 +93,7 @@ export default function Recompensas() {
       const data = await response.json()
       setRewards(data.rewards)
       setStats(data.stats)
+      setEnrolledCourses(data.enrolledCourses || [])
     } catch (err) {
       console.error("Error:", err)
       setError("Error al cargar las recompensas")
@@ -97,6 +114,7 @@ export default function Recompensas() {
         if (cancelled) return
         setRewards(data.rewards)
         setStats(data.stats)
+        setEnrolledCourses(data.enrolledCourses || [])
       })
       .catch((err) => {
         if (cancelled) return
@@ -122,7 +140,7 @@ export default function Recompensas() {
       const response = await fetch("/api/rewards", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ rewardId, evidence: evidence[rewardId] })
+        body: JSON.stringify({ rewardId, courseId: targetCourse[rewardId], evidence: evidence[rewardId] })
       })
 
       const data = await response.json()
@@ -318,6 +336,9 @@ export default function Recompensas() {
                       Nota docente: {reward.earned!.reviewNote}
                     </p>
                   )}
+                  <p className="text-xs text-blue-600 dark:text-blue-300">
+                    Curso objetivo: {reward.earned!.course.code} · {reward.earned!.course.name}
+                  </p>
                   {reward.earned!.expiresAt && reward.earned!.status === "APROBADO" && (
                     <p className="text-xs text-amber-600 dark:text-amber-400">
                       ⏰ Expira: {new Date(reward.earned!.expiresAt).toLocaleDateString("es-ES")}
@@ -355,6 +376,18 @@ export default function Recompensas() {
                   </button>
                 ) : reward.canAfford && reward.canUse ? (
                   <div className="space-y-2">
+                    <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300" htmlFor={`target-course-${reward.id}`}>
+                      Selecciona el curso objetivo
+                    </label>
+                    <select
+                      id={`target-course-${reward.id}`}
+                      value={targetCourse[reward.id] || ""}
+                      onChange={(event) => setTargetCourse((courses) => ({ ...courses, [reward.id]: event.target.value }))}
+                      className="w-full rounded-lg border border-gray-300 p-2 text-sm dark:border-gray-600 dark:bg-gray-700"
+                    >
+                      <option value="">Seleccionar curso...</option>
+                      {enrolledCourses.map((course) => <option key={course.id} value={course.id}>{course.code} · {course.name} · {course.period}</option>)}
+                    </select>
                     {(
                       <textarea
                         value={evidence[reward.id] || ""}
@@ -366,8 +399,8 @@ export default function Recompensas() {
                     )}
                     <button
                       onClick={() => handleRedeem(reward.id)}
-                      disabled={isRedeeming}
-                      className="w-full px-3 py-2 bg-gradient-to-r from-yellow-500 to-orange-500 text-white text-sm font-medium rounded-lg hover:from-yellow-600 hover:to-orange-600 disabled:opacity-50 flex items-center justify-center gap-2"
+                      disabled={isRedeeming || !targetCourse[reward.id]}
+                      className="w-full px-3 py-2 bg-linear-to-r from-yellow-500 to-orange-500 text-white text-sm font-medium rounded-lg hover:from-yellow-600 hover:to-orange-600 disabled:opacity-50 flex items-center justify-center gap-2"
                     >
                       {isRedeeming ? (
                         <>

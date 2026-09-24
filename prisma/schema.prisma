@@ -140,6 +140,7 @@ model Course {
   prerequisites   Prerequisite[] @relation("CoursePrerequisites")
   requiredBy      Prerequisite[] @relation("RequiredForCourse")
   enrollments     Enrollment[]
+  studentRewards  StudentReward[] // Inverse Course relation for reward requests
   missions        Mission[]
   assignedTeachers TeacherCourse[]
 
@@ -518,6 +519,7 @@ model StudentReward {
   id          String         @id @default(cuid())
   studentId   String
   rewardId    String
+  courseId    String
   status      RewardStatus   @default(SOLICITADO)
   pointsSpent Int            // Puntos gastados al momento de canjear
   requestedAt DateTime       @default(now())
@@ -529,6 +531,7 @@ model StudentReward {
 
   student     User           @relation(fields: [studentId], references: [id])
   reward      Reward         @relation(fields: [rewardId], references: [id])
+  course      Course         @relation(fields: [courseId], references: [id])
 
   @@unique([studentId, rewardId]) // Un estudiante puede canjear una recompensa una vez (si maxUses=1)
   @@map("student_rewards")

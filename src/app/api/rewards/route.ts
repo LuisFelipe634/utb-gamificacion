@@ -2,6 +2,11 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { auth } from "@/lib/auth"
 
+function currentPeriod() {
+  const now = new Date()
+  return `${now.getFullYear()}-${now.getMonth() < 6 ? 1 : 2}`
+}
+
 export async function GET() {
   try {
     const session = await auth()
@@ -33,8 +38,28 @@ export async function GET() {
     // Obtener recompensas canjeadas por el estudiante
     const studentRewards = await prisma.studentReward.findMany({
       where: { studentId: userId },
-      include: { reward: true }
+      include: { reward: true, course: { include: { semester: true } } }
     })
+
+    const profile = await prisma.studentProfile.findUnique({
+      where: { userId },
+      include: {
+        enrollments: {
+          where: {
+            semesterCode: currentPeriod(),
+            status: { in: ["CURSANDO", "INSCRITO"] }
+          },
+          include: { course: { include: { semester: true } } }
+        }
+      }
+    })
+    const enrolledCourses = profile?.enrollments.map((enrollment) => ({
+      id: enrollment.course.id,
+      code: enrollment.course.code,
+      name: enrollment.course.name,
+      semester: enrollment.course.semester.number,
+      period: enrollment.semesterCode
+    })) || []
 
     // Combinar información
     const rewardsWithStatus = rewards.map((reward) => {
@@ -60,7 +85,13 @@ export async function GET() {
           requestedAt: earned.requestedAt,
           reviewedAt: earned.reviewedAt,
           reviewNote: earned.reviewNote,
-          expiresAt: earned.expiresAt
+          expiresAt: earned.expiresAt,
+          course: {
+            id: earned.course.id,
+            code: earned.course.code,
+            name: earned.course.name,
+            semester: earned.course.semester.number
+          }
         } : null
       }
     })
@@ -78,6 +109,7 @@ export async function GET() {
 
     return NextResponse.json({
       rewards: rewardsWithStatus,
+      enrolledCourses,
       stats: {
         totalPoints,
         totalRewards: rewards.length,
@@ -109,10 +141,10 @@ export async function POST(request: Request) {
 
     const userId = session.user.id as string
     const body = await request.json()
-    const { rewardId, evidence } = body as { rewardId: string; evidence?: string }
+    const { rewardId, courseId, evidence } = body as { rewardId: string; courseId?: string; evidence?: string }
 
-    if (!rewardId) {
-      return NextResponse.json({ error: "ID de recompensa requerido" }, { status: 400 })
+    if (!rewardId || !courseId) {
+      return NextResponse.json({ error: "Debes seleccionar el curso objetivo" }, { status: 400 })
     }
 
     // Verificar que la recompensa existe y está activa
@@ -122,6 +154,22 @@ export async function POST(request: Request) {
 
     if (!reward || !reward.isActive) {
       return NextResponse.json({ error: "Recompensa no encontrada o inactiva" }, { status: 404 })
+    }
+
+    const profile = await prisma.studentProfile.findUnique({
+      where: { userId },
+      include: {
+        enrollments: {
+          where: {
+            courseId,
+            semesterCode: currentPeriod(),
+            status: { in: ["CURSANDO", "INSCRITO"] }
+          }
+        }
+      }
+    })
+    if (!profile?.enrollments.length) {
+      return NextResponse.json({ error: "Solo puedes reclamar la recompensa para un curso que estás cursando" }, { status: 400 })
     }
 
     // Verificar límite de usos
@@ -179,6 +227,7 @@ export async function POST(request: Request) {
         data: {
           studentId: userId,
           rewardId,
+          courseId,
           status: "SOLICITADO",
           pointsSpent: reward.cost,
           evidence: evidence?.trim() || null,
@@ -204,7 +253,7 @@ export async function POST(request: Request) {
       })
       if (studentProfile) {
         const teacherCourses = await tx.teacherCourse.findMany({
-          where: { courseId: { in: studentProfile.enrollments.map(e => e.courseId) } },
+          where: { courseId },
           include: { teacher: true }
         })
         const teacherIds = [...new Set(teacherCourses.map(tc => tc.teacher.userId))]
@@ -213,7 +262,7 @@ export async function POST(request: Request) {
             data: {
               userId: teacherId,
               title: "Nueva solicitud de recompensa",
-              message: `Un estudiante ha solicitado "${reward.name}". Revisa en el panel de docentes.`,
+              message: `Un estudiante ha solicitado "${reward.name}" para el curso seleccionado. Revisa en el panel de docentes.`,
               type: "SOLICITUD_RECOMPENSA",
               link: "/docentes"
             }

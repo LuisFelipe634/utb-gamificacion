@@ -414,11 +414,11 @@ async function main() {
     console.log('✅ Sara Peña configurada: semestres 1-7 aprobados y semestre 8 en curso')
   }
 
-  // nuevo usuario juanito alcachofa
+  // Estudiante de tercer semestre con promedio académico conservado.
   const juanitoStudent = await prisma.user.create({
     data: {
       email: 'juanito@utb.edu.co',
-      name: 'Juanito Alcachofa',
+      name: 'Angela Lemus',
       passwordHash: secondPasswordHash,
       role: 'STUDENT',
       studentProfile: {
@@ -426,7 +426,7 @@ async function main() {
           studentCode: '2021123456',
           meritcoinStudentId: 'STU-4',
           programId: program.id,
-          currentSemester: 4,
+          currentSemester: 3,
           admissionYear: 2021,
           totalCredits: 60,
           averageGrade: 4.7,
@@ -436,7 +436,7 @@ async function main() {
     }
   })
 
-  console.log('✅ Estudiante Juanito creado:', juanitoStudent.email)
+  console.log('✅ Estudiante Angela Lemus creada:', juanitoStudent.email)
 
   // Docentes
   const teacherUser = await prisma.user.create({
@@ -463,7 +463,7 @@ async function main() {
     where: { userId: teacherUser.id }
   })
   const assignedCourses = await prisma.course.findMany({
-    where: { code: { in: ['H01A', 'M01A', 'C02A'] } },
+    where: { code: { in: ['H01A', 'M01A', 'C02A', 'C04A'] } },
     orderBy: { code: 'asc' }
   })
 
@@ -486,7 +486,7 @@ async function main() {
     const enrollmentsByCourse: Array<{ code: string; student: typeof demoProfile | null }> = [
       { code: 'H01A', student: demoProfile }, // H01A -> Juan Pérez
       { code: 'M01A', student: saraProfileForTeacher }, // M01A -> Sara Peña
-      { code: 'C02A', student: juanitoProfileForTeacher }, // C02A -> Juanito Alcachofa
+      { code: 'C04A', student: juanitoProfileForTeacher }, // C04A -> Angela Lemus, tercer semestre
       // Juan Pérez también en C02A para probar que un estudiante puede estar en más de una materia pero no en todas
       { code: 'C02A', student: demoProfile },
     ]
@@ -506,6 +506,27 @@ async function main() {
           semesterCode: currentPeriod,
           status: 'CURSANDO'
         }
+      })
+    }
+  }
+
+  // Historia completa de Angela: semestres 1 y 2 aprobados, semestre 3 en curso.
+  const angelaProfile = await prisma.studentProfile.findUnique({ where: { userId: juanitoStudent.id } })
+  const angelaCourses = await prisma.course.findMany({
+    where: { programId: program.id, semester: { number: { in: [1, 2, 3] } } },
+    include: { semester: true },
+    orderBy: [{ semester: { number: 'asc' } }, { code: 'asc' }]
+  })
+  if (angelaProfile) {
+    for (const course of angelaCourses) {
+      const isApproved = course.semester.number < 3
+      const semesterCode = isApproved
+        ? `${2024 + course.semester.number}-1`
+        : currentPeriod
+      await prisma.enrollment.upsert({
+        where: { studentId_courseId_semesterCode: { studentId: angelaProfile.id, courseId: course.id, semesterCode } },
+        update: { status: isApproved ? 'APROBADO' : 'CURSANDO', grade: isApproved ? 4.7 : null, source: 'UNIVERSITY' },
+        create: { studentId: angelaProfile.id, courseId: course.id, semesterCode, status: isApproved ? 'APROBADO' : 'CURSANDO', grade: isApproved ? 4.7 : null, source: 'UNIVERSITY' }
       })
     }
   }

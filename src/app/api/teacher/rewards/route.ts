@@ -77,6 +77,7 @@ export async function GET() {
             }
           }
         },
+        course: { include: { semester: true } },
         reward: true
       },
       orderBy: { requestedAt: "asc" }
@@ -99,6 +100,7 @@ export async function GET() {
             }
           }
         },
+        course: { include: { semester: true } },
         reward: true
       },
       orderBy: { reviewedAt: "desc" },
@@ -112,14 +114,14 @@ export async function GET() {
         studentName: sr.student.name,
         studentEmail: sr.student.email,
         studentCode: sr.student.studentProfile?.studentCode,
-        courses: (sr.student.studentProfile?.enrollments || []).map((enrollment) => ({
-          id: enrollment.course.id,
-          code: enrollment.course.code,
-          name: enrollment.course.name,
-          semester: enrollment.course.semester.number,
-          period: enrollment.semesterCode,
-          assignmentId: courseById.get(enrollment.courseId)?.id || null
-        })),
+        courses: [{
+          id: sr.course.id,
+          code: sr.course.code,
+          name: sr.course.name,
+          semester: sr.course.semester.number,
+          period: sr.student.studentProfile?.enrollments.find((enrollment) => enrollment.courseId === sr.courseId)?.semesterCode || "",
+          assignmentId: courseById.get(sr.courseId)?.id || null
+        }],
         reward: {
           id: sr.reward.id,
           name: sr.reward.name,
@@ -143,7 +145,13 @@ export async function GET() {
         pointsSpent: sr.pointsSpent,
         reviewNote: sr.reviewNote,
         reviewedAt: sr.reviewedAt,
-        reviewedBy: sr.reviewedBy
+        reviewedBy: sr.reviewedBy,
+        course: {
+          id: sr.course.id,
+          code: sr.course.code,
+          name: sr.course.name,
+          semester: sr.course.semester.number
+        }
       }))
     })
   } catch (error) {

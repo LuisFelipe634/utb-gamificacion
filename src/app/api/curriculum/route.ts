@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
-import { getCurrentSemester } from "@/lib/academic"
+import { getCreditLimit, getCurrentSemester } from "@/lib/academic"
 
 function currentPeriod() {
   const now = new Date()
@@ -56,7 +56,7 @@ export async function GET() {
       .filter((enrollment) => enrollment.status === "CURSANDO" && enrollment.semesterCode === period && enrollment.course.semester?.number === currentSemester)
       .reduce((total, enrollment) => total + enrollment.course.credits, 0)
 
-    const creditLimit = profile.averageGrade >= 4.0 ? 20 : 18
+    const creditLimit = getCreditLimit(profile.averageGrade)
 
     // Promedio ponderado por créditos (mismo método que averageGrade del perfil)
     const gradesBySemester = new Map<number, { weightedSum: number; credits: number }>()
@@ -131,7 +131,7 @@ export async function POST(request: Request) {
     // Inscripción del periodo vigente en cualquier estado (para no violar @@unique)
     const periodEnrollment = profile.enrollments.find((enrollment) => enrollment.courseId === courseId && enrollment.semesterCode === period && enrollment.status !== "APROBADO")
 
-    const creditLimit = profile.averageGrade >= 4.0 ? 20 : 18
+    const creditLimit = getCreditLimit(profile.averageGrade)
 
     if (selected && !existing) {
       const credits = currentEnrollments.reduce((total, enrollment) => total + enrollment.course.credits, 0) + course.credits
