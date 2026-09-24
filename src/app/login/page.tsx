@@ -148,7 +148,7 @@ export default function LoginPage() {
               <button
                 type="button"
                 onClick={() => {
-                  setEmail("demo@utb.edu.co")
+                  setEmail("laura.avanzado@utb.edu.co")
                   setPassword("demo123")
                 }}
                 className="py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"

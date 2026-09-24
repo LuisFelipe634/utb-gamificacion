@@ -402,9 +402,9 @@ function TeachersContent() {
                           ))}
                         </div>
                         <p className="mt-4 text-sm font-semibold text-gray-900 dark:text-white">Historial de canjes</p>
-                        {student.rewardHistory.length ? (
+                        {(student.rewardHistory || []).length ? (
                           <ul className="mt-2 space-y-2">
-                            {student.rewardHistory.map((r) => (
+                            {(student.rewardHistory || []).map((r) => (
                               <li key={r.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-100 bg-white px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-800">
                                 <span className="text-gray-700 dark:text-gray-200">{r.name} · {r.courseCode}</span>
                                 <span className="font-semibold text-gray-500">{r.status} · {r.pointsSpent} pts</span>
