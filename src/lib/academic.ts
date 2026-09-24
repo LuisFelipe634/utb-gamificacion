@@ -8,6 +8,7 @@ type EnrollmentForSemester = {
 type GradeRecord = {
   grade: number | null
   status?: string
+  source?: string
   credits?: number
   course?: { credits?: number }
 }
@@ -69,7 +70,13 @@ export function getAverageGrade(
   }
 
   const enrollmentGrades = enrollments
-    .filter((record) => Number.isFinite(record.grade))
+    // MANUAL sin aval universitario no contamina el promedio (evita farmeo
+    // vía POST /api/curriculum). Solo UNIVERSITY o APROBADO con nota real.
+    .filter(
+      (record) =>
+        Number.isFinite(record.grade) &&
+        (record.source !== "MANUAL" || record.status === "APROBADO")
+    )
     .map((record) => ({ grade: record.grade as number, credits: creditsOf(record) }))
 
   const enrollmentAverage = weightedAverage(enrollmentGrades)

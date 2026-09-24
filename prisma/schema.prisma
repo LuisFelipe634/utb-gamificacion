@@ -66,6 +66,7 @@ model StudentProfile {
   enrollments     Enrollment[]
   academicHistory AcademicRecord[]
   recommendations Recommendation[]
+  riskAlerts      RiskAlert[]
 
   @@map("student_profiles")
   @@index([walletAddress])
@@ -105,6 +106,7 @@ model Program {
   courses     Course[]
   students    StudentProfile[]
   semesters   Semester[]
+  allowedStudents AllowedStudent[]
 
   @@map("programs")
 }
@@ -269,6 +271,7 @@ enum PointSource {
   CONSISTENCIA
   IMPACTO_SOCIAL
   EVENTO_ESPECIAL
+  CANJE_RECOMPENSA
 }
 
 model Mission {
@@ -469,6 +472,9 @@ model RiskAlert {
   resolvedAt  DateTime?
   createdAt   DateTime  @default(now())
 
+  student     StudentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@index([studentId])
   @@map("risk_alerts")
 }
 
@@ -533,7 +539,7 @@ model StudentReward {
   reward      Reward         @relation(fields: [rewardId], references: [id])
   course      Course         @relation(fields: [courseId], references: [id])
 
-  @@unique([studentId, rewardId]) // Un estudiante puede canjear una recompensa una vez (si maxUses=1)
+  @@unique([studentId, rewardId, courseId])
   @@map("student_rewards")
 }
 
@@ -543,4 +549,38 @@ enum RewardStatus {
   RECHAZADO    // Rechazado por docente
   EXPIRADO     // Se venció el tiempo de uso
   USADO        // La bonificación fue aplicada
+}
+
+// ============================================
+// REGISTRO CON CORREO INSTITUCIONAL (FASE 1)
+// El email @utb.edu.co es la llave canónica:
+// prueba de posesión vía OTP + aprovisionamiento JIT.
+// ============================================
+
+model EmailVerificationToken {
+  id         String    @id @default(cuid())
+  email      String
+  codeHash   String    @unique // SHA-256 del OTP de 6 dígitos
+  expiresAt  DateTime
+  attempts   Int       @default(0)
+  consumedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([email])
+  @@map("email_verification_tokens")
+}
+
+model AllowedStudent {
+  id            String   @id @default(cuid())
+  email         String   @unique // email institucional normalizado (lowercase)
+  studentCode   String   @unique // código universitario (ej. 2019123456)
+  programId     String
+  admissionYear Int
+  fullName      String?
+  createdAt     DateTime @default(now())
+
+  program Program @relation(fields: [programId], references: [id])
+
+  @@index([programId])
+  @@map("allowed_students")
 }

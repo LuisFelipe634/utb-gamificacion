@@ -2,6 +2,7 @@ import NextAuth from "next-auth"
 import Credentials from "next-auth/providers/credentials"
 import bcrypt from "bcryptjs"
 import { prisma } from "./prisma"
+import { normalizeInstitutionalEmail } from "./institutionalEmail"
 
 declare module "next-auth" {
   interface Session {
@@ -31,8 +32,9 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           return null
         }
 
-        const email = String(credentials.email).trim().toLowerCase()
-        if (!email.endsWith("@utb.edu.co")) {
+        // Validación estricta: regex exacta, sin subdominios ni sufijos.
+        const email = normalizeInstitutionalEmail(String(credentials.email))
+        if (!email) {
           return null
         }
 

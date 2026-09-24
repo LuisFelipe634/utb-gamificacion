@@ -134,8 +134,16 @@ export async function verifyMission(
 
     case "APROBAR_CREDITOS_SEMESTRE": {
       const target = Number(mission.verificationValue) || 0
+      // Solo UNIVERSITY cuenta: los MANUAL (auto-selección del estudiante)
+      // no otorgan créditos verificables hasta aval docente/PROA.
       const approvedInPeriod = profile.enrollments
-        .filter((enrollment) => enrollment.status === "APROBADO" && enrollment.semesterCode === currentPeriod && enrollment.course)
+        .filter(
+          (enrollment) =>
+            enrollment.status === "APROBADO" &&
+            enrollment.semesterCode === currentPeriod &&
+            enrollment.course &&
+            (enrollment as { source?: string }).source !== "MANUAL"
+        )
         .reduce((total, enrollment) => total + enrollment.course.credits, 0)
 
       if (approvedInPeriod >= target) {

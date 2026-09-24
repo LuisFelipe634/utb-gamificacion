@@ -7,6 +7,9 @@ API privada de UTB Gamificación construida con Next.js App Router (Route Handle
 ```text
 src/app/api/
   auth/[...nextauth]/route.ts  # NextAuth (login/logout/sesión)
+  auth/request-code/route.ts   # POST {email} OTP al buzón @utb.edu.co (rate-limit 5/h)
+  auth/verify-code/route.ts    # POST {email,code,name,password,studentCode?} JIT STUDENT
+  admin/teachers/route.ts      # POST alta docente solo ADMIN (sin auto-registro TEACHER)
   student/route.ts              # GET perfil+stats | PATCH vínculo Meritcoin
   curriculum/route.ts           # GET malla con estados | POST selección de cursos
   stats/route.ts                # GET agregados académicos + gamificación
@@ -22,7 +25,10 @@ src/app/api/
   teacher/notify/route.ts       # POST enviar ruta recomendada
 
 src/lib/ (dominio usado por las rutas)
-  auth.ts            # NextAuth Credentials (@utb.edu.co + bcrypt), auth()
+  auth.ts            # NextAuth Credentials (@utb.edu.co estricto + bcrypt), auth()
+  institutionalEmail.ts # normalize/parse correo-ciudadano (código vs nominal), password/code validators
+  emailProvider.ts   # OTP: Resend | SMTP log | console-dev (sin exponer código en prod)
+  rateLimit.ts       # in-memory 5/h OTP, 10/h verify (migrar a Redis en multi-instancia)
   session.ts         # getSessionContext, requireRole, jsonUnauthorized/Forbidden
   prisma.ts          # Singleton PrismaClient + PrismaPg(DATABASE_URL)
   academic.ts        # getAverageGrade, getCurrentSemester, getCreditLimit
@@ -53,7 +59,12 @@ Convención: `GET` nunca muta salvo registrar actividad diaria idempotente (`/ap
 ## Endpoints
 
 ### Auth — `auth/[...nextauth]/route.ts`
-- `GET/POST`: handlers de NextAuth. `authorize` solo acepta `@utb.edu.co` + `bcrypt.compare`. Sesión JWT con `{ id, role }`.
+- `GET/POST`: handlers de NextAuth. `authorize` solo acepta `@utb.edu.co` con regex exacta + `bcrypt.compare`. Sesión JWT con `{ id, role }`.
+
+### Registro institucional — `auth/request-code` + `auth/verify-code`
+- `POST request-code { email }`: normaliza, rate-limit, verifica no registrado, invalida OTPs previos, crea `EmailVerificationToken` (SHA-256, 15 min) y envía vía `emailProvider`.
+- `POST verify-code { email, code, name, password, studentCode? }`: valida OTP (5 intentos, un solo uso), resuelve `studentCode/programId/admissionYear` por prioridad `AllowedStudent > parse(email) > studentCode manual`, crea `User(STUDENT)+StudentProfile` en transacción + notificación. `meritcoinStudentId` queda NULL hasta Moodle real.
+- `POST admin/teachers` (ADMIN): única alta docente. Requiere `ADMIN_EMAIL` bootstrap vía seed/env.
 
 ### Estudiante
 

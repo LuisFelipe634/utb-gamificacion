@@ -33,7 +33,7 @@ export async function getRequiredSessionContext() {
   return { error: null, status: 200, data: context }
 }
 
-export async function requireRole(role: string) {
+export async function requireRole(role: string | string[]) {
   const context = await getSessionContext()
 
   if (!context) {
@@ -44,15 +44,26 @@ export async function requireRole(role: string) {
     }
   }
 
-  if (context.role !== role) {
+  const allowed = Array.isArray(role) ? role : [role]
+  if (!context.role || !allowed.includes(context.role)) {
+    const label =
+      allowed.includes("STUDENT") && allowed.length === 1
+        ? "estudiantes"
+        : allowed.includes("TEACHER") && allowed.length === 1
+          ? "docentes"
+          : "usuarios autorizados"
     return {
-      error: `Acceso exclusivo para ${role === "STUDENT" ? "estudiantes" : "docentes"}`,
+      error: `Acceso exclusivo para ${label}`,
       status: 403,
       data: null,
     }
   }
 
   return { error: null, status: 200, data: context }
+}
+
+export async function requireAdmin() {
+  return requireRole("ADMIN")
 }
 
 export function jsonUnauthorized(message = "No autorizado") {

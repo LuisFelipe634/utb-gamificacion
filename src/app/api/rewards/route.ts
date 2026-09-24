@@ -197,11 +197,12 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Puntos insuficientes" }, { status: 400 })
     }
 
-    // Verificar si ya tiene una solicitud pendiente para esta recompensa
+    // Verificar si ya tiene una solicitud pendiente para esta recompensa+curso
     const pendingRequest = await prisma.studentReward.findFirst({
       where: {
         studentId: userId,
         rewardId,
+        courseId,
         status: "SOLICITADO"
       }
     })
@@ -217,7 +218,7 @@ export async function POST(request: Request) {
         data: {
           userId,
           amount: -reward.cost,
-          source: "MISION_COMPLETADA", // Reutilizamos source existente
+          source: "CANJE_RECOMPENSA",
           description: `Canje: ${reward.name}`
         }
       })
