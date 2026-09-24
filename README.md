@@ -1,227 +1,191 @@
-# UTB Gamificacion
+# UTB Gamificación
 
-Plataforma gamificada para el seguimiento del avance academicos de estudiantes de la Universidad Tecnologica de Bolivar.
-
----
-
-## Descripcion
-
-Sistema web que permite a los estudiantes visualizar su progreso en la malla curricular, ganar puntos y insignias por sus logros, y recibir recomendaciones personalizadas para mejorar su rendimiento academico. Los docentes pueden acompanar a sus estudiantes, verificar misiones y orientar sus rutas de aprendizaje.
+Plataforma gamificada para el seguimiento del avance académico de estudiantes de la Universidad Tecnológica de Bolívar.
 
 ---
 
-## Stack Tecnologico
+## Descripción
 
-| Capa | Tecnologia |
+Sistema web donde el estudiante visualiza su progreso en la malla curricular, gana puntos e insignias, canjea recompensas académicas por puntos y recibe recomendaciones personalizadas. El docente acompaña a sus estudiantes por curso, verifica misiones con evidencia, aprueba canjes de recompensas y envía rutas recomendadas. Las insignias locales pueden emitirse on-chain a Meritcoin (ERC-1155) vinculando `STU-{id}` + wallet.
+
+---
+
+## Stack Tecnológico
+
+| Capa | Tecnología |
 |------|-----------|
-| Framework | Next.js 16.3.2 (App Router) |
-| UI | React 19, Tailwind CSS 4 |
+| Framework | Next.js 16.3.2 (App Router, `src/app`) |
+| UI | React 19, Tailwind CSS 4 (`src/app/globals.css`, `postcss.config.mjs`) |
 | Base de datos | PostgreSQL |
-| ORM | Prisma 7.9.1 |
-| Autenticacion | NextAuth.js 5 (beta, JWT + Credentials) |
-| Iconos | Lucide React |
-| Temas | next-themes (modo claro/oscuro) |
+| ORM | Prisma 7.9.1 (`prisma/schema.prisma`, `prisma.config.ts`, `src/lib/prisma.ts` con `@prisma/adapter-pg`) |
+| Autenticación | NextAuth.js 5 beta (JWT + Credentials, `src/lib/auth.ts`) |
+| Iconos | lucide-react |
+| Temas | next-themes (claro/oscuro, `src/components/providers/ThemeProvider.tsx`) |
+| Sesión cliente | `src/components/providers/SessionProvider.tsx` |
 
 ---
 
 ## Arquitectura Backend y APIs
 
-El proyecto usa Next.js como frontend y backend integrado mediante App Router. Las rutas dentro de `src/app/api` son la API privada de la aplicación: autentican al usuario, ejecutan reglas de negocio y consultan PostgreSQL mediante Prisma.
+Next.js funciona como frontend + backend. Las rutas `src/app/api/**/route.ts` son la API privada: validan sesión/rol con `src/lib/session.ts` (`requireRole`, `getSessionContext`), aplican reglas en `src/lib/*` y persisten con Prisma.
 
 ```text
-Navegador
+Navegador (Client Components en src/app/*/page.tsx)
   |
   v
-Next.js App Router
-  |-- paginas y componentes React
-  |-- NextAuth: autenticacion y sesiones
-  `-- /api/*: endpoints del backend
+Next.js App Router (src/app/layout.tsx -> AppShell -> Sidebar/Header)
+  |-- middleware.ts: redirige a /login si no hay cookie authjs.session-token
+  |-- NextAuth: login con dominio @utb.edu.co + bcrypt (src/lib/auth.ts)
+  `-- /api/*: endpoints por rol STUDENT / TEACHER
        |
        v
-    Prisma Client
+  src/lib/* (academic, recommendations, streak, activity, missionVerification, meritcoin)
        |
        v
-    PostgreSQL
+  Prisma Client (src/lib/prisma.ts) -> PostgreSQL (22 modelos)
+       |
+       +--> Meritcoin FastAPI externo (solo insignias, via src/lib/meritcoin.ts)
 ```
 
 ### Capas del backend
 
-| Capa | Ubicacion | Responsabilidad |
+| Capa | Ubicación | Responsabilidad |
 |---|---|---|
-| Rutas HTTP | `src/app/api/**/route.ts` | Autenticacion, validacion de entrada y respuestas JSON. |
-| Servicios de dominio | `src/lib` | Promedios, semestre actual, recomendaciones, rachas, actividad y Meritcoin. |
-| Persistencia | `src/lib/prisma.ts` | Cliente Prisma y conexion a PostgreSQL. |
-| Modelo de datos | `prisma/schema.prisma` | Usuarios, cursos, matrículas, notas, misiones, recompensas y logros. |
-| Datos iniciales | `prisma/seed.ts` | Usuarios, malla curricular y escenarios de prueba. |
+| Guard global | `src/middleware.ts` | Deja pasar `/login`, `/api/auth`, estáticos; si no hay cookie de sesión redirige a `/login?callbackUrl=...`. Cada API además valida JSON. |
+| Sesión/roles | `src/lib/auth.ts`, `src/lib/session.ts` | `auth()`, `requireRole("STUDENT"\|"TEACHER")`, `jsonUnauthorized`, `jsonForbidden`. Login solo `@utb.edu.co`. |
+| Rutas HTTP | `src/app/api/**/route.ts` | Validan entrada, rol y responden JSON. Ver `src/app/api/README.md`. |
+| Dominio | `src/lib/` | `academic.ts` (promedio, semestre actual, tope créditos), `recommendations.ts`, `streak.ts`, `activity.ts` (`ACTIVITY_ACTIONS`, racha diaria), `missionRules.ts` + `missionVerification.ts` (auto-verificación), `meritcoin.ts` (espejo + emisión on-chain). |
+| Persistencia | `src/lib/prisma.ts` | Singleton `PrismaClient` + `PrismaPg`. En dev se reutiliza vía `globalThis`. |
+| Modelo | `prisma/schema.prisma` | 22 modelos: usuarios, malla, progreso, gamificación, recompensas, notificaciones, riesgo, Meritcoin. |
+| Datos | `prisma/seed.ts`, `prisma/seed.demo.ts`, `prisma/backfill-meritcoin-ids.ts` | Seed base (programa ISCO 2019, 10 semestres, 55 cursos, 162 créditos, niveles, misiones, badges, rewards + demo@utb.edu.co), seed demo end-to-end aislado, backfill de `STU-{id}`. |
 
-### Catalogo de APIs
+### Catálogo de APIs
 
-| Endpoint | Metodos | Funcion |
-|---|---|---|
-| `/api/auth/[...nextauth]` | GET, POST | Inicio y gestion de sesiones. |
-| `/api/student` | GET, PATCH | Perfil del estudiante y vinculo Meritcoin. |
-| `/api/curriculum` | GET, POST | Malla, estados, prerrequisitos y seleccion de cursos. |
-| `/api/stats` | GET | Creditos, promedio, avance por semestre y gamificacion. |
-| `/api/missions` | GET, POST | Misiones del estudiante y evidencias. |
-| `/api/rewards` | GET, POST | Catalogo y solicitudes de recompensas con curso objetivo. |
-| `/api/badges` | GET | Insignias disponibles y obtenidas. |
-| `/api/badges/award` | POST | Emision de insignias. |
-| `/api/notifications` | GET, PATCH, DELETE | Consulta y gestion de notificaciones. |
-| `/api/recommendations` | GET, PATCH | Recomendaciones academicas. |
-| `/api/search` | GET | Busqueda global. |
-| `/api/teacher` | GET, PATCH | Acompanamiento docente y revision de misiones. |
-| `/api/teacher/rewards` | GET, PATCH | Revision e historial de recompensas por curso. |
-| `/api/teacher/notify` | POST | Envio de rutas recomendadas. |
+| Endpoint | Métodos | Rol | Función |
+|---|---|---|---|
+| `/api/auth/[...nextauth]` | GET, POST | público | Login/logout NextAuth Credentials. |
+| `/api/student` | GET, PATCH | STUDENT | GET perfil + stats + racha + insignias recientes (registra `ACADEMIC_DAILY_ACTIVITY`). PATCH `{ walletAddress, meritcoinStudentId }` para vínculo Meritcoin. |
+| `/api/curriculum` | GET, POST | STUDENT | GET malla por semestre con estado (aprobado/en curso/bloqueado/disponible), prerrequisitos y créditos. POST selección de cursos del periodo. |
+| `/api/stats` | GET | STUDENT | Créditos aprobados/totales, promedio (`academic.ts`), avance por semestre, puntos/nivel, tendencia. |
+| `/api/missions` | GET, POST | STUDENT | GET disponibles (por `level`) + estado del estudiante. POST crear/avanzar con `evidence`; si `autoVerify` usa `missionVerification.ts`, si no queda `EN_REVISION`. |
+| `/api/rewards` | GET, POST | STUDENT | GET catálogo activo + puntos totales + canjes + cursos del periodo actual para elegir `courseId`. POST solicitar canje `{ rewardId, courseId }` (descuenta puntos, estado `SOLICITADO`). |
+| `/api/badges` | GET | STUDENT | Locales + espejo Meritcoin (`syncMeritcoinTemplates`, `syncMeritcoinBadges`, saldo MRT). |
+| `/api/badges/award` | POST | STUDENT | `{ badgeId }` emite insignia local ya ganada a Meritcoin on-chain. Exige `meritcoinStudentId` formato `STU-x` y wallet custodial (la provisiona si falta). |
+| `/api/notifications` | GET, PATCH, DELETE | ambos | Listar, marcar leída (`isRead`), borrar. Tipos: `INFO, WARNING, ALERTA_RIESGO, LOGRO_OBTENIDO, MISION_DISPONIBLE, RECORDATORIO, SOLICITUD_RECOMPENSA`. |
+| `/api/recommendations` | GET, PATCH | STUDENT | GET genera bajo demanda con `generateRecommendations()`. PATCH aceptar/descartar (`isAccepted`, `isRead`). |
+| `/api/search` | GET `?q=` | ambos | Búsqueda global (cursos, misiones, insignias) insensible a tildes. |
+| `/api/teacher` | GET, PATCH | TEACHER | GET cursos asignados (`TeacherCourse` por `periodo YYYY-1/2`) + estudiantes con promedio/créditos/racha/riesgo. PATCH revisar misión (aprobar/devolver con `reviewComment`, otorga puntos). |
+| `/api/teacher/rewards` | GET, PATCH | TEACHER | GET solicitudes de canje de sus cursos + historial. PATCH aprobar/rechazar (`APROBADO/RECHAZADO`, `reviewNote`). |
+| `/api/teacher/notify` | POST | TEACHER | `{ studentId, message/cursos }` envía notificación de ruta recomendada y guarda `Activity{RUTA_RECOMENDADA_DOCENTE}`. |
 
-Las rutas protegidas usan la sesion de NextAuth y validan el rol requerido (`STUDENT` o `TEACHER`) antes de consultar o modificar datos.
+Errores estándar: `401 { error: "No autorizado" }` sin sesión, `403` rol incorrecto, `404` perfil/recurso no encontrado.
+
+Detalle de flujos y cómo añadir endpoints: ver `src/app/api/README.md`.
 
 ---
 
 ## Funcionalidades
 
-### Estudiantes
+### Estudiantes (`/dashboard`, `/malla`, `/misiones`, `/logros`, `/recompensas`, `/estadisticas`, `/notificaciones`, `/perfil`)
 
-- **Dashboard**: resumen de progreso, nivel, puntos, racha, misiones activas, logros recientes y notificaciones.
-- **Malla curricular interactiva**: visualizacion por semestre con estado de cada curso (aprobado, en curso, bloqueado, disponible), creditos aprobados vs totales y seleccion de materias.
-- **Misiones y desafios**: retos de tipo academico, planificacion, mejora continua, habitos de estudio e impacto social. El estudiante sube evidencia y el docente verifica.
-- **Logros e insignias**: insignias automaticas por progreso (Explorador), rendimiento (Excelencia, Especialista) y constancia (Velocista), con barra de progreso.
-- **Recomendaciones inteligentes**: motor que analiza prerrequisitos, cursos cuello de botella, materias reprobadas, electivas disponibles y promedio bajo para sugerir acciones prioritarias.
-- **Estadisticas**: creditos, promedio, nivel, tendencia de notas y distribucion por semestre.
-- **Notificaciones**: alertas de riesgo, logros obtenidos, misiones disponibles y recordatorios.
-- **Perfil**: informacion academica, nivel de gamificacion y resumen de insignias.
-- **Modo oscuro y claro**: con transicion suave y preferencia persistida.
-- **Diseno responsive**: optimizado para escritorio y movil.
+- **Dashboard**: puntos, nivel, racha, misiones activas, logros recientes, notificaciones y alertas.
+- **Malla interactiva**: por semestre con estado por prerrequisitos, créditos aprobados vs totales y selección de materias del periodo.
+- **Misiones**: tipos `ACADEMICO, PLANIFICACION, MEJORA_CONTINUA, HABITO_ESTUDIO, IMPACTO_SOCIAL`. Manuales con evidencia + revisión docente, o automáticas (`verificationKey/Value`: créditos, promedio, racha) vía `missionVerification.ts`. Estados: `PENDIENTE → EN_PROGRESO → EN_REVISION → COMPLETADA/VERIFICADA/RECHAZADA`.
+- **Logros**: locales por progreso/rendimiento/hábito + espejo Meritcoin (`MERIT-<tokenId>`). Barra de progreso y saldo MRT.
+- **Recompensas**: canje de puntos por bonificaciones (`EXAMEN, ASISTENCIA, ENTREGA, OTRO`) atadas a un `courseId` del periodo actual. Flujo `SOLICITADO → APROBADO/RECHAZADO → USADO/EXPIRADO`. Página `/recompensas`.
+- **Recomendaciones**: cuello de botella, reprobadas, electivas, ruta del próximo semestre, promedio < 3.5, rellenar créditos.
+- **Estadísticas**: créditos, promedio, nivel, tendencia y distribución por semestre.
+- **Perfil**: datos académicos, vínculo Meritcoin (`wallet 0x...` + `STU-x`, estados `Sin vincular / ID vinculado sin wallet / Vinculado`), nivel e insignias recientes.
+- **Responsive + modo claro/oscuro** (`next-themes`, `AppShell` + `Sidebar`/`Header`).
 
-### Docentes
+### Docentes (`/docentes`, `/perfil-docente`)
 
-- **Acompanamiento docente**: vista de cursos asignados con lista de estudiantes inscritos.
-- **Verificacion de misiones**: revisar evidencia, aprobar o devolver con comentarios.
-- **Perfil del estudiante**: promedio, creditos, cursos aprobados, racha, materias del semestre actual, ruta recomendada, insignias y alertas de riesgo.
-- **Enviar ruta recomendada**: el docente envia una notificacion al estudiante con las materias que debe priorizar, basada en prerrequisitos y creditos pendientes. El mensaje se registra como actividad.
-- **Perfil docente**: informacion profesional, facultad, departamento y estadisticas de acompanamiento.
+- **Acompañamiento**: cursos asignados del periodo + estudiantes inscritos (promedio, créditos, racha, insignias, riesgo).
+- **Verificación de misiones**: aprobar/devolver con comentario (otorga `Point{MISION_COMPLETADA}`).
+- **Recompensas**: aprobar/rechazar canjes de sus cursos.
+- **Enviar ruta recomendada**: notificación al estudiante + registro en `Activity`.
+- **Perfil docente**: facultad, departamento, profesión, cargo, conteo de estudiantes y misiones pendientes.
 
 ---
 
-## Sistema de Gamificacion
+## Sistema de Gamificación
 
-### Puntos
+### Puntos (`Point.source`)
 
-Los estudiantes acumulan puntos por distintas fuentes:
+`MISION_COMPLETADA, RENDIMIENTO_ACADEMICO, MEJORA_PROMEDIO, CONSISTENCIA, IMPACTO_SOCIAL, EVENTO_ESPECIAL`.
 
-| Fuente | Descripcion |
-|--------|-------------|
-| MISION_COMPLETADA | Completar una mision verificada |
-| RENDIMIENTO_ACADEMICO | Notas destacadas |
-| MEJORA_PROMEDIO | Incremento en el promedio |
-| CONSISTENCIA | Racha de actividad diaria |
-| IMPACTO_SOCIAL | Participacion en actividades sociales |
-| EVENTO_ESPECIAL | Logros puntuales |
+### Niveles (`Level`, seed en `prisma/seed.ts`)
 
-### Niveles
-
-| Nivel | Nombre | Puntos minimos |
-|-------|--------|---------------|
+| # | Nombre | Puntos mínimos |
+|---|---|---|
 | 1 | Novato | 0 |
 | 2 | Aprendiz | 500 |
-| 3 | Explorador | 1.500 |
-| 4 | Avanzado | 3.000 |
-| 5 | Maestro | 5.000 |
-| 6 | Leyenda | 8.000 |
+| 3 | Explorador | 1500 |
+| 4 | Avanzado | 3000 |
+| 5 | Maestro | 5000 |
+| 6 | Leyenda | 8000 |
 
-### Insignias
+### Insignias (`Badge.category`)
 
-| Categoria | Descripcion |
-|-----------|-------------|
-| PROGRESO | Avance en la carrera (completar semestre, materias) |
-| RENDIMIENTO | Notas destacadas y promedio alto |
-| HABITO | Constancia y actividad regular |
-| COMPETENCIA | Dominio de habilidades especificas |
-| IMPACTO_SOCIAL | Participacion y colaboracion |
+`PROGRESO, RENDIMIENTO, HABITO, COMPETENCIA, IMPACTO_SOCIAL, MERITCOIN`. Las on-chain se espejan por `externalId = MERIT-<tokenId>`.
 
-### Misiones
+### Misiones (`Mission.type`)
 
-| Tipo | Descripcion |
-|------|-------------|
-| ACADEMICO | Tareas relacionadas con el rendimiento academico |
-| PLANIFICACION | Actividades de organizacion y planificacion |
-| MEJORA_CONTINUA | Retos de crecimiento personal |
-| HABITO_ESTUDIO | Practicas de estudio y constancia |
-| IMPACTO_SOCIAL | Participacion en la comunidad universitaria |
+`ACADEMICO, PLANIFICACION, MEJORA_CONTINUA, HABITO_ESTUDIO, IMPACTO_SOCIAL`.
+
+### Recompensas (`Reward.category`)
+
+`EXAMEN (exonerar/mejorar nota), ASISTENCIA (limpiar falta), ENTREGA (extender/reintentar), OTRO`. Campos: `cost` en puntos, `maxUses`, `isActive`.
 
 ### Recomendaciones
 
-El motor de recomendaciones analiza:
+Motor `src/lib/recommendations.ts`: prerrequisitos que más desbloquean (alta), reprobadas (alta), promedio bajo (alta), ruta siguiente semestre (media), electivas desbloqueadas (baja), rellenar créditos.
 
-1. **Cursos cuello de botella**: materias que desbloquean mas cursos siguientes (prioridad alta).
-2. **Materias reprobadas**: cursos que es necesario repetir (prioridad alta).
-3. **Electivas disponibles**: optativas desbloqueadas para sumar creditos (prioridad baja).
-4. **Ruta sugerida**: obligatorias del proximo semestre ya desbloqueadas (prioridad media).
-5. **Promedio bajo**: alerta cuando el promedio cae por debajo de 3.5 (prioridad alta).
+### Riesgo (`RiskAlert`)
 
-### Alertas de Riesgo
-
-| Tipo | Descripcion |
-|------|-------------|
-| PREREQUISITO_FALTANTE | Falta un prerrequisito para inscribir un curso |
-| ATRASO_CREDITOS | El estudiante va retrasado en creditos aprobados |
-| BAJO_PROMEDIO | Promedio por debajo del umbral de riesgo |
-| CURSO_EN_RIESGO | Riesgo de reprobar un curso en curso |
-| SEMESTRE_RETRASADO | El estudiante lleva mas semestres de los planificados |
+`PREREQUISITO_FALTANTE, ATRASO_CREDITOS, BAJO_PROMEDIO, CURSO_EN_RIESGO, SEMESTRE_RETRASADO` con severidad `BAJA/MEDIA/ALTA/CRITICA`.
 
 ---
 
 ## Estructura del Proyecto
 
-```
+```text
 utb-gamificacion/
-  .env.example             # Plantilla de variables de entorno
-  setup.sh                 # Script de instalacion automatica
+  .env / .env.example        # DATABASE_URL, NEXTAUTH_SECRET/URL + MERITCOIN_* (ver Instalación)
+  setup.sh                   # Instalación automática (Node via nvm, Postgres, .env, db:push, seed)
+  next.config.ts / tsconfig.json / eslint.config.mjs / postcss.config.mjs / prisma.config.ts
+  public/utb-logotipo.png
+  scripts/                   # (vacía, utilidades futuras)
   prisma/
-    schema.prisma          # Modelos de la base de datos (20 modelos)
-    seed.ts                # Datos iniciales de prueba
+    schema.prisma            # 22 modelos
+    migrations/              # Migraciones SQL
+    seed.ts                  # Seed base: ISCO 2019 + usuarios demo
+    seed.demo.ts             # Seed demo end-to-end aislado (npm run db:seed:demo)
+    backfill-meritcoin-ids.ts# Rellena STU-{id} faltantes (npm run db:backfill-meritcoin)
   src/
+    middleware.ts            # Guard de páginas -> /login
     app/
-      api/
-        auth/[...nextauth]/ # Autenticacion NextAuth
-        badges/             # CRUD de insignias
-        badges/award/       # Emitir insignia local a Meritcoin on-chain
-        curriculum/         # Malla curricular
-        missions/           # Misiones estudiantiles
-        notifications/      # Notificaciones
-        recommendations/    # Motor de recomendaciones
-        search/             # Busqueda global
-        stats/              # Estadisticas del estudiante
-        student/            # Datos del estudiante
-        teacher/            # Datos del docente
-        teacher/notify/     # Enviar ruta recomendada a estudiantes
-      dashboard/            # Dashboard principal
-      docentes/             # Acompanamiento docente
-      estadisticas/         # Estadisticas detalladas
-      logros/               # Insignias y logros
-      malla/                # Malla curricular interactiva
-      misiones/             # Sistema de misiones
-      notificaciones/       # Centro de notificaciones
-      perfil/               # Perfil del estudiante
-      perfil-docente/       # Perfil del docente
-      login/                # Inicio de sesion
+      layout.tsx / globals.css / page.tsx (-> /dashboard) / favicon.ico
+      login/ dashboard/ malla/ misiones/ logros/ recompensas/
+      estadisticas/ notificaciones/ perfil/ docentes/ perfil-docente/
+      api/                   # Backend (ver src/app/api/README.md)
     components/
-      layout/               # AppShell, Sidebar, Header
-      providers/            # ThemeProvider, SessionProvider
+      layout/AppShell.tsx    # Oculta Sidebar/Header en /login
+      layout/Sidebar.tsx / layout/Header.tsx  # Nav por rol + búsqueda global
+      providers/SessionProvider.tsx / providers/ThemeProvider.tsx
     lib/
-      auth.ts               # Configuracion NextAuth + bcrypt
-      prisma.ts             # Cliente de Prisma
-      meritcoin.ts          # Integracion Meritcoin (espejo + emision on-chain)
-      streak.ts             # Calculo de racha de actividad
-      recommendations.ts    # Generador de recomendaciones
-      academic.ts           # Utilidades academicas (promedio, semestre)
-  package.json
-  tsconfig.json
-  postcss.config.mjs
+      auth.ts / session.ts / prisma.ts
+      academic.ts (+ academic.test.ts)
+      recommendations.ts / streak.ts / activity.ts
+      missionRules.ts (+ missionRules.test.ts) / missionVerification.ts
+      meritcoin.ts           # Cliente FastAPI Meritcoin + emisión ERC-1155
 ```
+
+Estructura detallada del frontend: `src/app/README.md`. Estructura del backend: `src/app/api/README.md`.
 
 ---
 
-## Instalacion
+## Instalación
 
 ### Prerrequisitos
 
@@ -229,165 +193,156 @@ utb-gamificacion/
 - PostgreSQL
 - npm
 
-### Pasos
-
-#### Metodo rapido (recomendado)
-
-El script `setup.sh` instala lo necesario automaticamente en un dispositivo nuevo:
+### Método rápido (recomendado)
 
 ```bash
-./setup.sh            # Instalacion completa (Node, PostgreSQL, DB, dependencias)
-./setup.sh --skip-db  # Solo dependencias npm, sin tocar PostgreSQL
+./setup.sh            # Completa: Node, Postgres, .env, dependencias, db:push, seed
+./setup.sh --skip-db  # Solo npm install, sin tocar Postgres
 ```
 
-El script detecta el sistema operativo (Linux Debian/Fedora/Arch o macOS), instala Node.js (>=18) via nvm, instala y arranca PostgreSQL, crea el usuario y la base de datos, genera el `.env` desde `.env.example`, instala dependencias npm, sincroniza el schema y puebla la base de datos. Ademas instala las extensiones de VS Code recomendadas si esta disponible.
+Detecta Debian/Fedora/Arch/macOS, instala Node >=18 vía nvm, crea usuario/DB, genera `.env` desde `.env.example`, hace `db:generate + db:push + db:seed`.
 
-#### Metodo manual
+### Método manual
 
-1. Clonar el repositorio
+1. Clonar e instalar:
 
 ```bash
 git clone <url-del-repositorio>
 cd utb-gamificacion
-```
-
-2. Instalar dependencias
-
-```bash
 npm install
 ```
 
-3. Configurar variables de entorno
-
-Crear un archivo `.env` en la raiz del proyecto (hay una plantilla en `.env.example`):
+2. Variables de entorno (`.env`, plantilla en `.env.example`):
 
 ```env
-DATABASE_URL="postgresql://usuario:password@localhost:5432/utb_gamificacion?schema=public"
-NEXTAUTH_SECRET="tu-secreto-aqui"
+DATABASE_URL="postgresql://postgres:postgres@localhost:5432/utb_gamificacion?schema=public"
+NEXTAUTH_SECRET="cambia-este-secreto-por-uno-seguro"
 NEXTAUTH_URL="http://localhost:3000"
+MERITCOIN_API_URL="http://localhost:8000"
+MERITCOIN_IPFS_GATEWAY="https://ipfs.io/ipfs/"
+MERITCOIN_ISSUER_ID="utb-app"
+MERITCOIN_ISSUER_ROLE="admin"
+MERITCOIN_ONBOARDING_COURSE_ID="GAMIFICACION-ONBOARDING"
 ```
 
-4. Generar cliente de Prisma y crear tablas
+Sin `MERITCOIN_*` la app funciona local; solo falla el espejo/emisión on-chain.
+
+3. DB + seed:
 
 ```bash
 npm run db:generate
 npm run db:push
+npm run db:seed        # base
+# o:
+npm run db:seed:demo   # caso demo end-to-end (resetea, solo pruebas)
+npm run db:backfill-meritcoin  # rellena meritcoinStudentId STU-{id} faltantes
 ```
 
-5. Poblar la base de datos con datos de ejemplo
-
-```bash
-npm run db:seed
-```
-
-6. Iniciar el servidor de desarrollo
+4. Dev:
 
 ```bash
 npm run dev
-```
-
-7. Abrir en el navegador
-
-```
-http://localhost:3000
+# http://localhost:3000  -> redirige a /dashboard (o /login sin sesión)
 ```
 
 ---
 
-## Credenciales de Prueba
+## Credenciales de Prueba (seed base)
 
 | Campo | Valor |
 |-------|-------|
-| Email | demo@utb.edu.co |
-| Contrasena | demo123 |
+| Email estudiante | demo@utb.edu.co |
+| Contraseña | demo123 |
 
-El email debe terminar en `@utb.edu.co` para poder iniciar sesion.
+El email debe terminar en `@utb.edu.co`. El seed demo (`db:seed:demo`) crea más usuarios/roles y escenarios (misiones y canjes en cada estado); ver cabecera de `prisma/seed.demo.ts`.
 
 ---
 
 ## Comandos Disponibles
 
 ```bash
-# Instalacion
-./setup.sh              # Instalacion completa automatica
+./setup.sh              # Instalación completa
 ./setup.sh --skip-db    # Solo dependencias npm
 
-# Desarrollo
-npm run dev              # Servidor de desarrollo con hot reload
+npm run dev              # Dev con hot reload
+npm run build            # Build producción
+npm run start            # Servidor producción
 
-# Build
-npm run build            # Construir para produccion
-npm run start            # Iniciar servidor de produccion
-
-# Base de datos
 npm run db:generate      # Generar cliente Prisma
-npm run db:push          # Sincronizar schema con la DB
-npm run db:seed          # Poblar con datos de ejemplo
-npm run db:reset         # Resetear y poblar la DB
-npm run db:studio        # Abrir Prisma Studio (GUI)
+npm run db:push          # Sincronizar schema (sin migraciones)
+npm run db:seed          # Seed base (tsx prisma/seed.ts)
+npm run db:seed:demo     # Seed demo end-to-end
+npm run db:backfill-meritcoin # Backfill STU-{id}
+npm run db:reset         # push --force-reset + seed base
+npm run db:studio        # Prisma Studio GUI
 
-# Codigo
-npm run lint             # Verificar con ESLint
+npm run lint             # ESLint (next + TS)
+npm run test:unit        # Tests unitarios (tsx --test src/lib/**/*.test.ts)
 ```
 
 ---
 
-## Modelos de Base de Datos
+## Modelos de Base de Datos (22)
 
-### Usuarios y Autenticacion
+### Usuarios y auth
 
-- **User**: email (institucional), nombre, hash de contrasena, rol (STUDENT/TEACHER/ADMIN).
-- **StudentProfile**: codigo universitario, programa, semestre actual, creditos, promedio, nivel.
-- **TeacherProfile**: departamento, facultad, profesion, cargo.
+- **User**: email institucional único, nombre, `passwordHash` (bcrypt), rol `STUDENT/TEACHER/ADMIN`.
+- **StudentProfile**: `studentCode`, `programId`, `currentSemester`, `totalCredits`, `averageGrade`, `level`, `walletAddress` (0x, espejo `wallet_registry`), `meritcoinStudentId` único `STU-{id}`.
+- **TeacherProfile**: departamento, facultad, profesión, cargo, `isActive`.
 
-### Academico
+### Académico
 
-- **Program**: Ingenieria de Sistemas (u otros), creditos totales, semestres, version del plan.
-- **Semester**: numero del semestre dentro del programa.
-- **Course**: codigo, nombre, creditos, tipo (OBLIGATORIO/ELECTIVA/LIBRE_ELECCION/GENERAL).
-- **Prerequisite**: relaciones de prerrequisito y correquisito entre cursos.
-- **Enrollment**: inscripcion de un estudiante en un curso por periodo, con nota y estado.
-- **AcademicRecord**: historial academico importado (notas, semestre, estado).
-- **TeacherCourse**: asignacion de docentes a cursos por periodo.
+- **Program**: ej. ISCO `Ingeniería de Sistemas`, 162 créditos, 10 semestres, versión `2019`.
+- **Semester / Course / Prerequisite**: cursos por semestre, tipo `OBLIGATORIO/ELECTIVA/LIBRE_ELECCION/GENERAL`, prerrequisito `REQUIRED/COREQUISITE`.
+- **Enrollment**: `{ studentId, courseId, semesterCode YYYY-1/2 }` único, estado `INSCRITO/CURSANDO/APROBADO/REPROBADO/RETIRADO/CANCELADO`, `grade`, origen `UNIVERSITY/MANUAL`.
+- **AcademicRecord**: historial importado (`courseCode, grade, semester, year, credits`, estado `APROBADO/REPROBADO/EN_CURSO/PENDIENTE`).
+- **TeacherCourse**: `{ teacherId, courseId, period }` único.
 
-### Gamificacion
+### Gamificación
 
-- **Point**: puntos acumulados con fuente y descripcion.
-- **Mission**: misiones con tipo, recompensa en puntos, nivel requerido y evidencia.
-- **StudentMission**: progreso del estudiante en cada mision (0-100%, verificacion docente).
-- **Badge**: insignias por categoria con nivel y puntos requeridos.
-- **StudentBadge**: insignias obtenidas por el estudiante.
-- **Level**: configuracion de niveles con puntos minimos.
+- **Point**: `amount + source + description`.
+- **Mission**: `type, pointsReward, autoVerify + verificationKey/Value, courseId?, requiredLevel?, isActive, start/endDate`.
+- **StudentMission**: `status, progress 0-100, evidence, metadata JSON, verifiedBy/At, reviewComment`, único por estudiante+misión.
+- **Badge**: `category, iconUrl, requiredLevel?, pointsRequired?, externalId? MERIT-<tokenId>`.
+- **StudentBadge**: único por estudiante+insignia.
+- **Level**: `number, name, minPoints`.
 
-### Notificaciones y Actividad
+### Recompensas
 
-- **Notification**: notificaciones por tipo (INFO, WARNING, ALERTA_RIESGO, LOGRO_OBTENIDO, MISION_DISPONIBLE, RECORDATORIO).
-- **Activity**: registro de actividad del estudiante para calcular rachas (incluye accion `RUTA_RECOMENDADA_DOCENTE` cuando un docente envia una ruta recomendada).
+- **Reward**: `name, icon, category EXAMEN/ASISTENCIA/ENTREGA/OTRO, cost, maxUses?, isActive`.
+- **StudentReward**: `{ studentId, rewardId }` único, `courseId` objetivo, `status SOLICITADO/APROBADO/RECHAZADO/EXPIRADO/USADO`, `pointsSpent, requestedAt, reviewedBy/At, reviewNote, evidence, expiresAt`.
 
-### Recomendaciones y Riesgo
+### Notificaciones, actividad, recomendaciones, riesgo
 
-- **Recommendation**: recomendaciones generadas automaticamente con prioridad.
-- **RiskAlert**: alertas de riesgo academico con severidad (BAJA/MEDIA/ALTA/CRITICA).
+- **Notification**: `title, message, type, isRead, link?`.
+- **Activity**: `{ action, details Json? }`, acciones en `ACTIVITY_ACTIONS` (`LOGIN, PAGE_VIEW, ACADEMIC_DAILY_ACTIVITY, RUTA_RECOMENDADA_DOCENTE...`) para rachas.
+- **Recommendation**: `type CURSO_SUGERIDO/RUTA_ACademica/ALERTA_ATRASO/MEJORA_PROMEDIO/ELECTIVA_RECOMENDADA/RELLENAR_CREDITOS, priority 1=alta 2=media 3=baja, isRead, isAccepted?`.
+- **RiskAlert**: `type + severity BAJA/MEDIA/ALTA/CRITICA, courseId?, isResolved?`.
 
 ---
 
 ## Seguridad
 
-- Autenticacion por credenciales con validacion de dominio institucional (`@utb.edu.co`).
-- Contrasenas hasheadas con bcrypt.
-- Sesiones JWT.
-- Proteccion de rutas API via middleware.
-- Validacion de entrada en todos los endpoints.
+- Solo `@utb.edu.co` (`src/lib/auth.ts` authorize), bcrypt, JWT.
+- `src/middleware.ts` protege páginas; cada API revalida con `requireRole` (no confiar solo en el middleware, cuyo `matcher` excluye `/api`).
+- Validación de entrada y 401/403/404 JSON en todos los endpoints.
 
 ---
 
+## Integración Meritcoin (`src/lib/meritcoin.ts`)
+
+- Backend FastAPI externo (`MERITCOIN_API_URL`): `GET /students/{wallet}/summary`, `/students/{wallet}/badges`, emisión ERC-1155, `wallet_registry.student_id = STU-{id}`.
+- `STU-{id}` se normaliza con `normalizeMeritcoinStudentId()` y se backfillea con `db:backfill-meritcoin`.
+- Si hay `STU-x` sin wallet, `/logros`/`/api/badges/award` provisionan wallet custodial automáticamente.
+- Sin Meritcoin arriba, todo lo local sigue funcionando.
+
 ## Integraciones Futuras
 
-- **PROA**: fuente de mallas academicas.
-- **Banner**: registro academico oficial.
+- **PROA**: mallas académicas.
+- **Banner**: registro académico oficial.
 
 ---
 
 ## Licencia
 
-Proyecto academico - Universidad Tecnologica de Bolivar.
+Proyecto académico - Universidad Tecnológica de Bolívar.
