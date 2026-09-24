@@ -134,6 +134,7 @@ export async function GET() {
         risk: student.risk,
         totalPoints: student.totalPoints,
         rewardStatus: student.rewardStatus,
+        rewardHistory: student.rewardHistory,
         pendingRewardsCount: student.pendingRewardCourseIds.filter((courseId) => courseId === assignment.courseId).length
       }))
     }))
