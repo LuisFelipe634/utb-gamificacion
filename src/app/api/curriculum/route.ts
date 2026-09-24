@@ -73,21 +73,31 @@ export async function GET() {
     const semesters = profile.program.semesters.map((semester) => {
       const entry = gradesBySemester.get(semester.number)
       const semesterAverage = entry && entry.credits > 0 ? Math.round((entry.weightedSum / entry.credits) * 100) / 100 : null
+      const courses = semester.courses.map((course) => {
+        const enrollment = enrollmentByCourse.get(course.id)
+        const status = enrollment?.status === "APROBADO" ? "completed" :
+          enrollment?.status === "CURSANDO" ? "in_progress" :
+            enrollment?.status === "REPROBADO" ? "available" : "blocked"
+        const prerequisitesMet = course.prerequisites.every(({ prerequisite }) => approvedIds.has(prerequisite.id))
+        const missingPrerequisites = course.prerequisites
+          .filter(({ prerequisite }) => !approvedIds.has(prerequisite.id))
+          .map(({ prerequisite }) => `${prerequisite.code} - ${prerequisite.name}`)
+        return { id: course.id, code: course.code, name: course.name, credits: course.credits, status: status === "blocked" && prerequisitesMet ? "available" : status, grade: enrollment?.grade ?? null, selected: selectedIds.has(course.id), source: enrollment?.source ?? null, inCurrentPeriod: enrollment ? enrollment.semesterCode === period : false, prerequisitesMet, missingPrerequisites }
+      })
+      const completedCredits = courses
+        .filter((course) => course.status === "completed")
+        .reduce((total, course) => total + course.credits, 0)
+      const inProgressCredits = courses
+        .filter((course) => course.status === "in_progress" && course.inCurrentPeriod)
+        .reduce((total, course) => total + course.credits, 0)
+
       return {
         semester: semester.number,
         name: semester.name,
         semesterAverage,
-        courses: semester.courses.map((course) => {
-          const enrollment = enrollmentByCourse.get(course.id)
-          const status = enrollment?.status === "APROBADO" ? "completed" :
-            enrollment?.status === "CURSANDO" ? "in_progress" :
-              enrollment?.status === "REPROBADO" ? "available" : "blocked"
-          const prerequisitesMet = course.prerequisites.every(({ prerequisite }) => approvedIds.has(prerequisite.id))
-          const missingPrerequisites = course.prerequisites
-            .filter(({ prerequisite }) => !approvedIds.has(prerequisite.id))
-            .map(({ prerequisite }) => `${prerequisite.code} - ${prerequisite.name}`)
-          return { id: course.id, code: course.code, name: course.name, credits: course.credits, status: status === "blocked" && prerequisitesMet ? "available" : status, grade: enrollment?.grade ?? null, selected: selectedIds.has(course.id), source: enrollment?.source ?? null, inCurrentPeriod: enrollment ? enrollment.semesterCode === period : false, prerequisitesMet, missingPrerequisites }
-        })
+        completedCredits,
+        inProgressCredits,
+        courses
       }
     })
 

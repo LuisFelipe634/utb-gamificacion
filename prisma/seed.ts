@@ -331,12 +331,11 @@ async function main() {
 
   console.log('✅ Usuario demo creado:', demoUser.email)
 
-  // Agregar inscripciones del usuario demo (semestre 1 aprobado, semestre 2 parcial)
-  const sem1Courses = await prisma.course.findMany({
-    where: { programId: program.id, semester: { number: 1 } },
-  })
-  const sem2Courses = await prisma.course.findMany({
-    where: { programId: program.id, semester: { number: 2 } },
+  // Agregar una historia académica completa y un semestre vigente realista.
+  const demoCourses = await prisma.course.findMany({
+    where: { programId: program.id },
+    include: { semester: true },
+    orderBy: [{ semester: { number: 'asc' } }, { code: 'asc' }],
   })
 
   const demoProfile = await prisma.studentProfile.findUnique({
@@ -344,29 +343,17 @@ async function main() {
   })
 
   if (demoProfile) {
-    // Semestre 1: todas aprobadas
-    for (const course of sem1Courses) {
+    for (const course of demoCourses) {
+      const semesterNumber = course.semester.number
+      if (semesterNumber > 6) continue
+      const isCurrent = semesterNumber === 6
       await prisma.enrollment.create({
         data: {
           studentId: demoProfile.id,
           courseId: course.id,
-          semesterCode: '2019-1',
-          status: 'APROBADO',
-          grade: 4.0 + Math.random() * 0.8,
-        },
-      })
-    }
-
-    // Semestre 2: MAT102 y PRO102 aprobadas, FIS102 reprobada, resto aprobadas
-    for (const course of sem2Courses) {
-      const isFailed = course.code === 'FIS102'
-      await prisma.enrollment.create({
-        data: {
-          studentId: demoProfile.id,
-          courseId: course.id,
-          semesterCode: '2019-2',
-          status: isFailed ? 'REPROBADO' : 'APROBADO',
-          grade: isFailed ? 2.5 : 3.8 + Math.random() * 0.7,
+          semesterCode: isCurrent ? currentPeriod : `${2019 + semesterNumber - 1}-${semesterNumber % 2 === 0 ? 2 : 1}`,
+          status: isCurrent ? 'CURSANDO' : 'APROBADO',
+          grade: isCurrent ? null : [4.2, 4.5, 3.9, 4.1, 4.4, 4.0][(semesterNumber - 1) % 6],
         },
       })
     }
