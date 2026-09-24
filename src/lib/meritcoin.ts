@@ -41,6 +41,7 @@ const MERITCOIN_API_URL = (process.env.MERITCOIN_API_URL || "http://localhost:80
 const IPFS_GATEWAY = (process.env.MERITCOIN_IPFS_GATEWAY || "https://ipfs.io/ipfs/").replace(/\/?$/, "/")
 const MERITCOIN_ISSUER_ID = process.env.MERITCOIN_ISSUER_ID || "utb-app"
 const MERITCOIN_ISSUER_ROLE = process.env.MERITCOIN_ISSUER_ROLE === "teacher" ? "teacher" : "admin"
+const MERITCOIN_ONBOARDING_COURSE_ID = process.env.MERITCOIN_ONBOARDING_COURSE_ID || "GAMIFICACION-ONBOARDING"
 
 export function isMeritcoinConfigured(): boolean {
   return !!process.env.MERITCOIN_API_URL
@@ -48,6 +49,106 @@ export function isMeritcoinConfigured(): boolean {
 
 export function isValidWalletAddress(wallet: string): boolean {
   return /^0x[a-fA-F0-9]{40}$/.test(wallet.trim())
+}
+
+/**
+ * Llave canónica adaptada a Meritcoin.
+ * Meritcoin usa `STU-{userid}` de Moodle (ver plugin/classes/observer.php:206
+ * y wallet_registry.student_id @unique). Acepta "3" → "STU-3" y "stu-3" → "STU-3".
+ * Los IDs numéricos largos (códigos legacy ya emitidos como student_id, ej. "2026000001")
+ * se conservan tal cual para no romper awards existentes.
+ * Retorna null si el valor no puede normalizarse.
+ */
+export function normalizeMeritcoinStudentId(value: string | null | undefined): string | null {
+  if (!value) return null
+  const trimmed = value.trim()
+  if (!trimmed) return null
+  if (/^STU-\d+$/i.test(trimmed)) return `STU-${trimmed.slice(4)}`
+  // Solo los numéricos cortos son userids de Moodle; los largos son IDs legacy ya usados en Meritcoin.
+  if (/^\d{1,7}$/.test(trimmed)) return `STU-${trimmed}`
+  return trimmed.length <= 100 ? trimmed : null
+}
+
+export type MeritcoinWalletLookup = {
+  studentId: string
+  walletAddress: string
+  status: string
+}
+
+/** GET /wallets/{student_id} — espejo de wallet_registry sin exponer la clave privada. */
+export async function getWalletByStudentId(meritcoinStudentId: string): Promise<MeritcoinWalletLookup | null> {
+  const studentId = normalizeMeritcoinStudentId(meritcoinStudentId)
+  if (!studentId || !isMeritcoinConfigured()) return null
+  const payload = asRecord(await fetchJson(`/wallets/${encodeURIComponent(studentId)}`, 8000))
+  const walletAddress = pickString(payload?.wallet_address)
+  if (!walletAddress || !isValidWalletAddress(walletAddress)) return null
+  return {
+    studentId,
+    walletAddress: walletAddress.trim(),
+    status: pickString(payload?.status) ?? "active",
+  }
+}
+
+/**
+ * POST /wallets/provision — provisiona la wallet custodial en Meritcoin.
+ * Requiere course_id + expires_at (ver backend/app/api/wallets.py ProvisionRequest).
+ * Por defecto usa el curso de onboarding de gamificación con expiración a 1 año.
+ */
+export async function provisionCustodialWallet(
+  meritcoinStudentId: string,
+  courseId: string = MERITCOIN_ONBOARDING_COURSE_ID,
+  expiresAt?: Date
+): Promise<{ walletAddress: string; created: boolean }> {
+  const studentId = normalizeMeritcoinStudentId(meritcoinStudentId)
+  if (!studentId) throw new Error("meritcoinStudentId inválido (se espera formato STU-{id})")
+  const expires = expiresAt ?? new Date(Date.now() + 365 * 24 * 60 * 60 * 1000)
+  const result = await postJson<{ wallet_address: string; created: boolean }>("/wallets/provision", {
+    student_id: studentId,
+    course_id: courseId,
+    expires_at: expires.toISOString(),
+  })
+  if (!isValidWalletAddress(result.wallet_address)) {
+    throw new Error("Meritcoin devolvió una wallet inválida")
+  }
+  return { walletAddress: result.wallet_address.trim(), created: result.created }
+}
+
+/**
+ * Resuelve y persiste la wallet custodial de Meritcoin para un usuario.
+ * 1) Si el perfil ya tiene wallet válida, la retorna.
+ * 2) Si no, consulta GET /wallets/{STU-x} y la guarda.
+ * 3) Si no existe, la provisiona con el curso de onboarding y la guarda.
+ * Retorna null si no hay meritcoinStudentId o el backend no está disponible.
+ */
+export async function resolveCustodialWallet(
+  userId: string,
+  meritcoinStudentId: string | null | undefined
+): Promise<{ walletAddress: string; created: boolean } | null> {
+  const studentId = normalizeMeritcoinStudentId(meritcoinStudentId)
+  if (!studentId) return null
+  const profile = await prisma.studentProfile.findUnique({ where: { userId } })
+  if (profile?.walletAddress && isValidWalletAddress(profile.walletAddress)) {
+    return { walletAddress: profile.walletAddress.trim(), created: false }
+  }
+  const existing = await getWalletByStudentId(studentId).catch(() => null)
+  if (existing) {
+    await prisma.studentProfile.update({
+      where: { userId },
+      data: { walletAddress: existing.walletAddress, meritcoinStudentId: studentId },
+    }).catch(() => undefined)
+    return { walletAddress: existing.walletAddress, created: false }
+  }
+  try {
+    const provisioned = await provisionCustodialWallet(studentId)
+    await prisma.studentProfile.update({
+      where: { userId },
+      data: { walletAddress: provisioned.walletAddress, meritcoinStudentId: studentId },
+    }).catch(() => undefined)
+    return provisioned
+  } catch (error) {
+    console.error("Error provisionando wallet custodial:", error)
+    return null
+  }
 }
 
 /** Convierte ipfs://CID/... a URL HTTP vía gateway. */
@@ -559,8 +660,19 @@ export async function syncMeritcoinAwardsByStudentId(
   userId: string,
   meritcoinStudentId: string
 ): Promise<{ synced: number; connected: boolean; walletImported: boolean }> {
-  const awards = await getMeritcoinAwardsByStudentId(meritcoinStudentId).catch(() => null)
-  if (awards === null) return { synced: 0, connected: false, walletImported: false }
+  // Normaliza a la llave canónica STU-{id} antes de consultar a Meritcoin.
+  // Además consulta la variante numérica cruda: el flujo manual de Moodle
+  // (plugin/badge_award.php) guarda student_id sin prefijo STU-.
+  const studentId = normalizeMeritcoinStudentId(meritcoinStudentId) ?? meritcoinStudentId.trim()
+  const variants = [studentId]
+  const rawMatch = /^STU-(\d+)$/i.exec(studentId)
+  if (rawMatch) variants.push(rawMatch[1])
+  const fetched = await Promise.all(variants.map((v) => getMeritcoinAwardsByStudentId(v).catch(() => null)))
+  if (fetched.every((f) => f === null)) return { synced: 0, connected: false, walletImported: false }
+  const seen = new Set<string>()
+  const awards = (fetched.flat().filter(Boolean) as MeritcoinAwardPayload[]).filter((a) =>
+    seen.has(a.id) ? false : (seen.add(a.id), true)
+  )
 
   let synced = 0
   let walletImported = false
@@ -618,11 +730,12 @@ export async function syncMeritcoinAwardsByStudentId(
 
 export type EmitResult =
   | { awarded: true; awardId: string; txHash: string | null; chainStatus: string }
-  | { awarded: false; reason: "not-configured" | "no-wallet" | "invalid-wallet" | "already-awarded" | "error"; detail?: string }
+  | { awarded: false; reason: "not-configured" | "no-wallet" | "no-merit-id" | "invalid-wallet" | "already-awarded" | "error"; detail?: string }
 
 /**
  * Emite una insignia local a Meritcoin (ERC-1155) de forma idempotente.
- * - Usa el studentCode como student_id de Meritcoin y la wallet del perfil.
+ * Adaptado a Meritcoin: usa meritcoinStudentId (formato STU-{userid} de Moodle,
+ * ver wallet_registry.student_id) como student_id, nunca el studentCode.
  * - Reutiliza la plantilla Meritcoin por nombre (la crea si no existe).
  * - Si ya existe un award no revocado para esa plantilla, no duplica.
  * - Marca el StudentBadge local como MERITCOIN con el award/tx en evidencia.
@@ -644,7 +757,11 @@ export async function emitLocalBadgeToMeritcoin(userId: string, badgeId: string)
   // Las insignias espejo (MERIT-*) ya viven on-chain: no re-emitir.
   if (badge.externalId?.startsWith("MERIT-")) return { awarded: false, reason: "already-awarded" }
 
-  const studentId = user.studentProfile?.studentCode?.trim() || userId
+  // Llave canónica Meritcoin: STU-{userid}. Sin ella no se puede emitir ni conciliar.
+  const studentId = normalizeMeritcoinStudentId(user.studentProfile?.meritcoinStudentId)
+  if (!studentId) {
+    return { awarded: false, reason: "no-merit-id", detail: "Vincula tu ID de Meritcoin/Moodle (formato STU-3) en tu perfil" }
+  }
 
   try {
     const [template, existingAwards] = await Promise.all([

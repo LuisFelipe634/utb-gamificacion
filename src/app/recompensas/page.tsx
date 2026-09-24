@@ -1,0 +1,432 @@
+"use client"
+
+import { useState, useEffect } from "react"
+import {
+  Gift,
+  Trophy,
+  Coins,
+  Lock,
+  CheckCircle,
+  AlertCircle,
+  Clock,
+  XCircle,
+  Loader2,
+  CreditCard,
+  Plus,
+  HelpCircle
+} from "lucide-react"
+
+interface Reward {
+  id: string
+  name: string
+  description: string
+  icon: string
+  category: string
+  cost: number
+  maxUses: number | null
+  canAfford: boolean
+  canUse: boolean
+  usesCount: number
+  earned: {
+    id: string
+    status: string
+    pointsSpent: number
+    requestedAt: string
+    reviewedAt: string | null
+    reviewNote: string | null
+    expiresAt: string | null
+  } | null
+}
+
+interface RewardStats {
+  totalPoints: number
+  totalRewards: number
+  availableRewards: number
+  usedRewards: number
+  byCategory: Record<string, { total: number; available: number; used: number }>
+}
+
+const categoryConfig: Record<string, { label: string; color: string; bg: string; icon: React.ComponentType<{ className?: string }> }> = {
+  EXAMEN: { label: "Exámenes", color: "text-red-600 dark:text-red-400", bg: "bg-red-100 dark:bg-red-900/30", icon: HelpCircle },
+  ASISTENCIA: { label: "Asistencia", color: "text-green-600 dark:text-green-400", bg: "bg-green-100 dark:bg-green-900/30", icon: CheckCircle },
+  ENTREGA: { label: "Entregas", color: "text-blue-600 dark:text-blue-400", bg: "bg-blue-100 dark:bg-blue-900/30", icon: Clock },
+  OTRO: { label: "Otros", color: "text-purple-600 dark:text-purple-400", bg: "bg-purple-100 dark:bg-purple-900/30", icon: Gift }
+}
+
+const statusConfig: Record<string, { label: string; color: string; icon: React.ComponentType<{ className?: string }> }> = {
+  SOLICITADO: { label: "Pendiente revisión", color: "text-amber-600 dark:text-amber-400", icon: Clock },
+  APROBADO: { label: "Aprobado", color: "text-green-600 dark:text-green-400", icon: CheckCircle },
+  RECHAZADO: { label: "Rechazado", color: "text-red-600 dark:text-red-400", icon: XCircle },
+  EXPIRADO: { label: "Expirado", color: "text-gray-500 dark:text-gray-400", icon: Clock },
+  USADO: { label: "Usado", color: "text-blue-600 dark:text-blue-400", icon: CheckCircle }
+}
+
+export default function Recompensas() {
+  const [rewards, setRewards] = useState<Reward[]>([])
+  const [stats, setStats] = useState<RewardStats | null>(null)
+  const [filter, setFilter] = useState<string>("all")
+  const [loading, setLoading] = useState(true)
+  const [redeemingId, setRedeemingId] = useState<string | null>(null)
+  const [evidence, setEvidence] = useState<Record<string, string>>({})
+  const [error, setError] = useState("")
+
+  const fetchRewards = async () => {
+    try {
+      const response = await fetch("/api/rewards")
+      if (!response.ok) throw new Error("Error al cargar recompensas")
+      const data = await response.json()
+      setRewards(data.rewards)
+      setStats(data.stats)
+    } catch (err) {
+      console.error("Error:", err)
+      setError("Error al cargar las recompensas")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    let cancelled = false
+
+    fetch("/api/rewards")
+      .then((response) => {
+        if (!response.ok) throw new Error("Error al cargar recompensas")
+        return response.json()
+      })
+      .then((data) => {
+        if (cancelled) return
+        setRewards(data.rewards)
+        setStats(data.stats)
+      })
+      .catch((err) => {
+        if (cancelled) return
+        console.error("Error:", err)
+        setError("Error al cargar las recompensas")
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  const handleRedeem = async (rewardId: string) => {
+    const reward = rewards.find(r => r.id === rewardId)
+    if (!reward) return
+
+    setRedeemingId(rewardId)
+    setError("")
+    try {
+      const response = await fetch("/api/rewards", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ rewardId, evidence: evidence[rewardId] })
+      })
+
+      const data = await response.json()
+      if (!response.ok) throw new Error(data.error || "Error al canjear recompensa")
+
+      await fetchRewards()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Error al canjear la recompensa")
+    } finally {
+      setRedeemingId(null)
+    }
+  }
+
+  const filteredRewards = rewards.filter((reward) => {
+    if (filter === "all") return true
+    if (filter === "available") return reward.canUse && reward.canAfford && !reward.earned
+    if (filter === "owned") return !!reward.earned
+    if (filter === "unaffordable") return reward.canUse && !reward.canAfford
+    return reward.category === filter
+  })
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="w-8 h-8 text-blue-500 animate-spin" />
+        <span className="ml-2 text-gray-600 dark:text-gray-400">Cargando recompensas...</span>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Recompensas</h1>
+          <p className="text-gray-600 dark:text-gray-400">
+            Canjea tus puntos por bonificaciones en el curso
+          </p>
+        </div>
+        <div className="flex items-center gap-2 px-4 py-2 bg-yellow-100 dark:bg-yellow-900/30 rounded-lg">
+          <Coins className="w-5 h-5 text-yellow-600 dark:text-yellow-400" />
+          <span className="font-semibold text-yellow-700 dark:text-yellow-400">
+            {stats?.totalPoints?.toLocaleString() || 0} pts
+          </span>
+        </div>
+      </div>
+
+      {/* Stats Cards */}
+      {stats && (
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xs p-4 border border-gray-200 dark:border-gray-700">
+            <p className="text-sm text-gray-500 dark:text-gray-400">Total Recompensas</p>
+            <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.totalRewards}</p>
+          </div>
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xs p-4 border border-gray-200 dark:border-gray-700">
+            <p className="text-sm text-gray-500 dark:text-gray-400">Disponibles</p>
+            <p className="text-2xl font-bold text-green-600 dark:text-green-400">{stats.availableRewards}</p>
+          </div>
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xs p-4 border border-gray-200 dark:border-gray-700">
+            <p className="text-sm text-gray-500 dark:text-gray-400">Canjeadas</p>
+            <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">{stats.usedRewards}</p>
+          </div>
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xs p-4 border border-gray-200 dark:border-gray-700">
+            <p className="text-sm text-gray-500 dark:text-gray-400">Puntos Totales</p>
+            <p className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">{stats.totalPoints.toLocaleString()}</p>
+          </div>
+        </div>
+      )}
+
+      {error && (
+        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+          <div className="flex items-center gap-2 text-red-700 dark:text-red-300">
+            <AlertCircle className="w-5 h-5" />
+            <span>{error}</span>
+          </div>
+        </div>
+      )}
+
+      {/* Category Filters */}
+      <div className="flex items-center gap-2 flex-wrap">
+        {[
+          { key: "all", label: "Todas", icon: Gift },
+          { key: "available", label: "Disponibles", icon: Plus },
+          { key: "owned", label: "Mis canjes", icon: Trophy },
+          { key: "unaffordable", label: "Insuficientes", icon: Lock }
+        ].map((f) => (
+          <button
+            key={f.key}
+            onClick={() => setFilter(f.key)}
+            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors flex items-center gap-1 ${
+              filter === f.key
+                ? "bg-blue-600 text-white"
+                : "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600"
+            }`}
+          >
+            <f.icon className="w-4 h-4" />
+            {f.label}
+          </button>
+        ))}
+      </div>
+
+      <div className="flex items-center gap-2 flex-wrap mt-2">
+        {Object.entries(categoryConfig).map(([key, config]) => {
+          const catStats = stats?.byCategory[key]
+          return (
+            <button
+              key={key}
+              onClick={() => setFilter(key)}
+              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors flex items-center gap-1 ${
+                filter === key
+                  ? `${config.bg} ${config.color}`
+                  : "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600"
+              }`}
+            >
+              <config.icon className="w-4 h-4" />
+              {config.label}
+              {catStats && (
+                <span className="ml-1 text-xs">
+                  ({catStats.available}/{catStats.total})
+                </span>
+              )}
+            </button>
+          )
+        })}
+      </div>
+
+      {/* Rewards Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {filteredRewards.map((reward) => {
+          const category = categoryConfig[reward.category] || categoryConfig.OTRO
+          const CatIcon = category.icon
+          const isRedeeming = redeemingId === reward.id
+          const hasEarned = !!reward.earned
+          const earnedStatus = reward.earned ? statusConfig[reward.earned.status] : null
+
+          return (
+            <div
+              key={reward.id}
+              className={`bg-white dark:bg-gray-800 rounded-xl shadow-xs border p-5 transition-all hover:shadow-lg ${
+                hasEarned
+                  ? "border-green-300 dark:border-green-600"
+                  : reward.canAfford && reward.canUse
+                  ? "border-yellow-300 dark:border-yellow-600"
+                  : "border-gray-200 dark:border-gray-700 opacity-75"
+              }`}
+            >
+              {/* Header: Icon & Category */}
+              <div className="flex items-start justify-between mb-3">
+                <div className="relative">
+                  <span className="text-4xl">{reward.icon}</span>
+                  {!hasEarned && !reward.canAfford && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-gray-900/50 rounded-full">
+                      <Lock className="w-6 h-6 text-white" />
+                    </div>
+                  )}
+                </div>
+                <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${category.bg} ${category.color}`}>
+                  <CatIcon className="w-3 h-3" />
+                  {category.label}
+                </div>
+              </div>
+
+              {/* Name & Cost */}
+              <h3 className="font-semibold text-gray-900 dark:text-white mb-1">{reward.name}</h3>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mb-3 line-clamp-2">{reward.description}</p>
+
+              <div className="flex items-center justify-between mb-3 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                <div className="flex items-center gap-2">
+                  <CreditCard className="w-5 h-5 text-yellow-600 dark:text-yellow-400" />
+                  <span className="font-semibold text-gray-900 dark:text-white">{reward.cost.toLocaleString()} pts</span>
+                </div>
+                {reward.maxUses !== null && (
+                  <span className="text-xs text-gray-500 dark:text-gray-400">
+                    {reward.usesCount}/{reward.maxUses} usados
+                  </span>
+                )}
+              </div>
+
+              {/* Progress / Status */}
+              {hasEarned && earnedStatus && (
+                <div className="space-y-2 mb-3">
+                  <div className="flex items-center gap-2">
+                    <earnedStatus.icon className={`w-4 h-4 ${earnedStatus.color}`} />
+                    <span className={`text-sm ${earnedStatus.color}`}>{earnedStatus.label}</span>
+                  </div>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    Solicitado: {new Date(reward.earned!.requestedAt).toLocaleDateString("es-ES")}
+                    {reward.earned!.reviewedAt && ` · Revisado: ${new Date(reward.earned!.reviewedAt).toLocaleDateString("es-ES")}`}
+                  </p>
+                  {reward.earned!.reviewNote && (
+                    <p className="text-xs text-gray-600 dark:text-gray-300 bg-gray-50 dark:bg-gray-700/50 p-2 rounded">
+                      Nota docente: {reward.earned!.reviewNote}
+                    </p>
+                  )}
+                  {reward.earned!.expiresAt && reward.earned!.status === "APROBADO" && (
+                    <p className="text-xs text-amber-600 dark:text-amber-400">
+                      ⏰ Expira: {new Date(reward.earned!.expiresAt).toLocaleDateString("es-ES")}
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {!hasEarned && (
+                <>
+                  {!reward.canUse && (
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
+                      Límite de usos alcanzado
+                    </p>
+                  )}
+                  {!reward.canAfford && reward.canUse && (
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
+                      Necesitas {reward.cost - (stats?.totalPoints ?? 0)} pts más
+                    </p>
+                  )}
+                </>
+              )}
+
+              {/* Action Button */}
+              <div className="pt-3 border-t border-gray-100 dark:border-gray-700">
+                {hasEarned ? (
+                  <button
+                    disabled
+                    className="w-full px-3 py-2 bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 text-sm rounded-lg cursor-not-allowed"
+                  >
+                    {reward.earned!.status === "APROBADO" ? "✓ Aprobado - Disponible para usar" :
+                     reward.earned!.status === "SOLICITADO" ? "⏳ En revisión docente" :
+                     reward.earned!.status === "RECHAZADO" ? "✗ Rechazado" :
+                     reward.earned!.status === "USADO" ? "✓ Ya utilizado" : "Expirado"}
+                  </button>
+                ) : reward.canAfford && reward.canUse ? (
+                  <div className="space-y-2">
+                    {(
+                      <textarea
+                        value={evidence[reward.id] || ""}
+                        onChange={(e) => setEvidence(prev => ({ ...prev, [reward.id]: e.target.value }))}
+                        placeholder="Evidencia opcional (ej: captura del parcial, justificante...)"
+                        rows={2}
+                        className="w-full rounded-lg border border-gray-300 p-2 text-xs dark:border-gray-600 dark:bg-gray-700"
+                      />
+                    )}
+                    <button
+                      onClick={() => handleRedeem(reward.id)}
+                      disabled={isRedeeming}
+                      className="w-full px-3 py-2 bg-gradient-to-r from-yellow-500 to-orange-500 text-white text-sm font-medium rounded-lg hover:from-yellow-600 hover:to-orange-600 disabled:opacity-50 flex items-center justify-center gap-2"
+                    >
+                      {isRedeeming ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          Canjeando...
+                        </>
+                      ) : (
+                        <>
+                          <Gift className="w-4 h-4" />
+                          Canjear por {reward.cost.toLocaleString()} pts
+                        </>
+                      )}
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    disabled
+                    className="w-full px-3 py-2 bg-gray-100 dark:bg-gray-700 text-gray-400 dark:text-gray-500 text-sm rounded-lg cursor-not-allowed"
+                  >
+                    {reward.canUse ? "Puntos insuficientes" : "Límite alcanzado"}
+                  </button>
+                )}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+
+      {filteredRewards.length === 0 && (
+        <div className="text-center py-12">
+          <Gift className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
+          <p className="text-gray-500 dark:text-gray-400">
+            {filter === "all"
+              ? "No hay recompensas disponibles"
+              : filter === "available"
+              ? "No hay recompensas disponibles para canjear ahora"
+              : filter === "owned"
+              ? "Aún no has canjeado ninguna recompensa"
+              : "No hay recompensas en esta categoría"}
+          </p>
+        </div>
+      )}
+
+      {/* Info Section */}
+      <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-6">
+        <div className="flex items-start gap-3">
+          <HelpCircle className="w-6 h-6 text-blue-600 dark:text-blue-400 mt-0.5" />
+          <div>
+            <h3 className="font-semibold text-blue-900 dark:text-blue-100">¿Cómo funcionan las recompensas?</h3>
+            <ul className="mt-2 text-sm text-blue-800 dark:text-blue-200 space-y-1">
+              <li>• Gana puntos completando misiones y logros académicos</li>
+              <li>• Canjea puntos por bonificaciones reales en tus cursos</li>
+              <li>• Las solicitudes son revisadas por docentes (pueden tardar 24-48h)</li>
+              <li>• Una vez aprobadas, tienes 30 días para usar la bonificación</li>
+              <li>• Si es rechazada, se te devuelven los puntos</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}

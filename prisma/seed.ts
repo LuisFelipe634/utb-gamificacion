@@ -14,6 +14,8 @@ async function main() {
 
   // Limpiar datos existentes (si los hay)
   console.log('🧹 Limpiando datos existentes...')
+  await prisma.studentReward.deleteMany()
+  await prisma.reward.deleteMany()
   await prisma.activity.deleteMany()
   await prisma.notification.deleteMany()
   await prisma.studentBadge.deleteMany()
@@ -215,9 +217,68 @@ async function main() {
 
   console.log('✅ Niveles creados')
 
-  // Las insignias NO se siembran aquí: el catálogo real viene de Meritcoin
-  // (plantillas del backend FastAPI) y se refleja en GET /api/badges.
-  console.log('ℹ️ Insignias: se sincronizan desde Meritcoin en tiempo de ejecución')
+  // ============================================
+// Crear recompensas / bonificaciones
+// ============================================
+
+  console.log('🎁 Creando recompensas...')
+
+  const rewardsData = [
+    {
+      name: "Exoneración de Parcial",
+      description: "Exonerarse de presentar un examen parcial (sujeto a aprobación docente). No aplica a exámenes finales.",
+      icon: "📝",
+      category: "EXAMEN" as const,
+      cost: 2000,
+      maxUses: 1,
+    },
+    {
+      name: "Mejora de Nota Parcial",
+      description: "Aumentar la nota de un examen parcial en 0.5 puntos (máximo hasta 5.0). Requiere aprobación del docente.",
+      icon: "📈",
+      category: "EXAMEN" as const,
+      cost: 1500,
+      maxUses: 2,
+    },
+    {
+      name: "Limpieza de Inasistencia",
+      description: "Eliminar una inasistencia registrada en el curso actual. Máximo 1 por semestre.",
+      icon: "✅",
+      category: "ASISTENCIA" as const,
+      cost: 800,
+      maxUses: 1,
+    },
+    {
+      name: "Extensión de Entrega",
+      description: "Obtener 48 horas extra para entregar un trabajo o proyecto. Una vez por curso.",
+      icon: "⏰",
+      category: "ENTREGA" as const,
+      cost: 500,
+      maxUses: 1,
+    },
+    {
+      name: "Reintento de Quiz",
+      description: "Volver a presentar un cuestionario/quiz para mejorar la nota. Sujeto a disponibilidad del docente.",
+      icon: "🔄",
+      category: "ENTREGA" as const,
+      cost: 600,
+      maxUses: 2,
+    },
+    {
+      name: "Asesoría Personalizada",
+      description: "Sesión de 30 minutos con el docente acompañante para revisar dudas o planificar el semestre.",
+      icon: "👨‍🏫",
+      category: "OTRO" as const,
+      cost: 1000,
+      maxUses: 1,
+    },
+  ]
+
+  for (const rewardData of rewardsData) {
+    await prisma.reward.create({ data: rewardData })
+  }
+
+  console.log('✅ Recompensas creadas')
 
   // Crear misiones de ejemplo
   const missionsData = [
@@ -225,7 +286,16 @@ async function main() {
      { title: 'Explorar tu Malla', description: 'Consulta materias de al menos tres semestres.', type: 'ACADEMICO' as const, pointsReward: 50, autoVerify: true },
      { title: 'Revisar tu Progreso', description: 'Consulta tus estadísticas académicas de la semana.', type: 'ACADEMICO' as const, pointsReward: 50, autoVerify: true },
      { title: 'Constancia Académica', description: 'Ingresa a la plataforma cuatro días diferentes durante la semana.', type: 'HABITO_ESTUDIO' as const, pointsReward: 100, autoVerify: true },
-     { title: 'Completar un Quiz', description: 'Obtén al menos 70% en un cuestionario académico.', type: 'ACADEMICO' as const, pointsReward: 100, autoVerify: true }
+     { title: 'Completar un Quiz', description: 'Obtén al menos 70% en un cuestionario académico.', type: 'ACADEMICO' as const, pointsReward: 100, autoVerify: true },
+     { title: 'Mantener una racha de 7 días accediendo', description: 'Registra diariamente una actividad con action = LOGIN o PAGE_VIEW:/dashboard y comprueba 7 días consecutivos.', type: 'HABITO_ESTUDIO' as const, pointsReward: 200, autoVerify: true, verificationKey: 'RACHA_7_DIAS_ACCESO' },
+     { title: 'Completar 3 misiones en una semana', description: 'Cuenta los registros de StudentMission con status = COMPLETADA dentro de una ventana de 7 días.', type: 'MEJORA_CONTINUA' as const, pointsReward: 250, autoVerify: true, verificationKey: 'COMPLETAR_3_MISIONES_SEMANA' },
+     { title: 'Revisar las notificaciones pendientes', description: 'Verifica que el número de notificaciones con isRead = false sea igual a 0.', type: 'HABITO_ESTUDIO' as const, pointsReward: 150, autoVerify: true, verificationKey: 'SIN_NOTIFICACIONES_PENDIENTES' },
+     // Misiones académicas con verificación automática real
+     { title: 'Aprobar 6 créditos este semestre', description: 'Aprueba al menos 6 créditos durante el período académico actual.', type: 'ACADEMICO' as const, pointsReward: 200, autoVerify: true, verificationKey: 'APROBAR_CREDITOS_SEMESTRE', verificationValue: '6' },
+     { title: 'Mejorar tu promedio en 0.5 puntos', description: 'Sube tu promedio ponderado al menos 0.5 puntos respecto al inicio del período.', type: 'ACADEMICO' as const, pointsReward: 250, autoVerify: true, verificationKey: 'MEJORAR_PROMEDIO', verificationValue: '0.5' },
+     { title: 'Cero reprobados en el semestre', description: 'No registrar ninguna materia reprobada en el semestre actual.', type: 'ACADEMICO' as const, pointsReward: 200, autoVerify: true, verificationKey: 'CERO_REPROBADOS' },
+     { title: 'Completar prerrequisitos de Programación Orientada a Objetos', description: 'Aprueba todos los prerrequisitos del curso C04A para poder cursarlo.', type: 'PLANIFICACION' as const, pointsReward: 150, autoVerify: true, verificationKey: 'COMPLETAR_PREREQUISITOS', verificationValue: 'C04A' },
+     { title: 'Avanzar al siguiente semestre', description: 'Acumula los créditos necesarios (12 por semestre cursado) para avanzar de semestre.', type: 'ACADEMICO' as const, pointsReward: 180, autoVerify: true, verificationKey: 'AVANZAR_SEMESTRE' }
   ]
 
   for (const missionData of missionsData) {
@@ -245,6 +315,9 @@ async function main() {
       studentProfile: {
         create: {
           studentCode: '2019123456',
+          // Llave canónica Meritcoin: debe coincidir con wallet_registry.student_id (STU-{moodleId}).
+          // Ajusta con `npm run db:backfill-meritcoin -- --map ./meritcoin-map.json` para datos reales.
+          meritcoinStudentId: 'STU-2',
           programId: program.id,
           currentSemester: 6,
           admissionYear: 2019,
@@ -312,6 +385,7 @@ async function main() {
       studentProfile: {
         create: {
           studentCode: '2020123456',
+          meritcoinStudentId: 'STU-3',
           programId: program.id,
           currentSemester: 8,
           admissionYear: 2019,
@@ -363,6 +437,7 @@ async function main() {
       studentProfile: {
         create: {
           studentCode: '2021123456',
+          meritcoinStudentId: 'STU-4',
           programId: program.id,
           currentSemester: 4,
           admissionYear: 2021,
@@ -444,6 +519,30 @@ async function main() {
           semesterCode: currentPeriod,
           status: 'CURSANDO'
         }
+      })
+    }
+  }
+
+  // Créditos aprobados en el período actual para Juan Pérez, de modo que la misión
+  // "Aprobar 6 créditos este semestre" (verificación automática) pueda completarse
+  if (demoProfile) {
+    const currentApprovedCourses = await prisma.course.findMany({
+      where: { code: { in: ['C05A', 'C06A'] } }
+    })
+    for (const course of currentApprovedCourses) {
+      const existingEnrollment = await prisma.enrollment.findFirst({
+        where: { studentId: demoProfile.id, courseId: course.id, semesterCode: currentPeriod },
+      })
+      if (existingEnrollment) continue
+
+      await prisma.enrollment.create({
+        data: {
+          studentId: demoProfile.id,
+          courseId: course.id,
+          semesterCode: currentPeriod,
+          status: 'APROBADO',
+          grade: Number((3.0 + Math.random() * 1.8).toFixed(1)),
+        },
       })
     }
   }

@@ -5,7 +5,7 @@ import { emitLocalBadgeToMeritcoin } from "@/lib/meritcoin"
 /**
  * POST /api/badges/award { badgeId }
  * Emite una insignia local ya ganada a Meritcoin (ERC-1155 on-chain).
- * Requiere que el estudiante tenga wallet registrada en su perfil.
+ * Requiere meritcoinStudentId (STU-{id}) y wallet custodial en el perfil.
  */
 export async function POST(request: Request) {
   try {
@@ -23,7 +23,7 @@ export async function POST(request: Request) {
 
     if (!result.awarded) {
       const status =
-        result.reason === "no-wallet"
+        result.reason === "no-wallet" || result.reason === "no-merit-id"
           ? 422
           : result.reason === "invalid-wallet"
             ? 400
@@ -32,7 +32,8 @@ export async function POST(request: Request) {
               : 200
       const messages: Record<string, string> = {
         "not-configured": "Meritcoin no está configurado (MERITCOIN_API_URL)",
-        "no-wallet": "Registra tu wallet Ethereum en tu perfil para emitir on-chain",
+        "no-wallet": "No tienes wallet custodial. Abre Logros o Perfil para provisionarla automáticamente",
+        "no-merit-id": "Vincula tu ID de Meritcoin/Moodle (formato STU-3) en tu perfil para emitir on-chain",
         "invalid-wallet": "La wallet registrada es inválida",
         "already-awarded": "Esta insignia ya está registrada on-chain",
         error: "No se pudo emitir la insignia",

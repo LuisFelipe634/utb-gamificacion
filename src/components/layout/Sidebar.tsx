@@ -9,7 +9,8 @@ import {
   Target,
   BarChart3,
   Users,
-  UserRound
+  UserRound,
+  Gift
 } from "lucide-react"
 import { useSession } from "next-auth/react"
 import { useEffect, useState } from "react"
@@ -19,6 +20,7 @@ const navigation = [
   { name: "Plan de estudios", href: "/malla", icon: BookOpen },
   { name: "Logros académicos", href: "/logros", icon: Trophy },
   { name: "Misiones & desafíos", href: "/misiones", icon: Target },
+  { name: "Recompensas", href: "/recompensas", icon: Gift },
   { name: "Estadísticas", href: "/estadisticas", icon: BarChart3 },
 ]
 

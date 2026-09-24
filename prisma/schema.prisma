@@ -32,6 +32,7 @@ model User {
   badges         StudentBadge[]
   notifications  Notification[]
   activities     Activity[]
+  rewards        StudentReward[]
 
   @@map("users")
 }
@@ -56,8 +57,8 @@ model StudentProfile {
   totalCredits    Int      @default(0)
   averageGrade    Float    @default(0.0)
   level           Int      @default(1)  // Nivel académico actual
-  walletAddress   String?  // Wallet Ethereum para insignias on-chain (Meritcoin)
-  meritcoinStudentId String? // ID del estudiante en Meritcoin/Moodle (student_id de awards)
+  walletAddress   String?  // Wallet Ethereum para insignias on-chain (Meritcoin, espejo de wallet_registry)
+  meritcoinStudentId String? @unique // ID canónico en Meritcoin/Moodle (formato STU-{userid}, ver wallet_registry.student_id)
 
   // Relaciones
   user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -67,6 +68,8 @@ model StudentProfile {
   recommendations Recommendation[]
 
   @@map("student_profiles")
+  @@index([walletAddress])
+  @@index([meritcoinStudentId])
 }
 
 model TeacherProfile {
@@ -274,6 +277,8 @@ model Mission {
   type          MissionType
   pointsReward  Int
   autoVerify    Boolean      @default(false)
+  verificationKey String?    // Clave de la regla de verificación automática (ej. APROBAR_CREDITOS_SEMESTRE)
+  verificationValue String?  // Parámetro de la regla (créditos, mejora de promedio, código de curso...)
   courseId       String?
   requiredLevel Int?         // Nivel mínimo requerido
   isActive      Boolean      @default(true)
@@ -303,6 +308,7 @@ model StudentMission {
   progress    Int          @default(0)  // 0-100
   completedAt DateTime?
   evidence    String?      // URL o descripción de evidencia
+  metadata    String?      // Datos de respaldo para verificación automática (JSON, ej. promedio inicial)
   verifiedBy  String?
   verifiedAt  DateTime?
   reviewComment String?
@@ -402,6 +408,7 @@ enum NotificationType {
   LOGRO_OBTENIDO
   MISION_DISPONIBLE
   RECORDATORIO
+  SOLICITUD_RECOMPENSA
 }
 
 model Activity {
@@ -477,4 +484,60 @@ enum RiskSeverity {
   MEDIA
   ALTA
   CRITICA
+}
+
+// ============================================
+// MODELOS DE RECOMPENSAS / BONIFICACIONES
+// ============================================
+
+model Reward {
+  id          String        @id @default(cuid())
+  name        String
+  description String
+  icon        String
+  category    RewardCategory
+  cost        Int           // Costo en puntos
+  isActive    Boolean       @default(true)
+  maxUses     Int?          // Límite de usos por estudiante (null = ilimitado)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  students    StudentReward[]
+
+  @@map("rewards")
+}
+
+enum RewardCategory {
+  EXAMEN        // Exonerar examen, mejorar nota
+  ASISTENCIA    // Limpiar inasistencia
+  ENTREGA       // Extender entrega, reintentar trabajo
+  OTRO
+}
+
+model StudentReward {
+  id          String         @id @default(cuid())
+  studentId   String
+  rewardId    String
+  status      RewardStatus   @default(SOLICITADO)
+  pointsSpent Int            // Puntos gastados al momento de canjear
+  requestedAt DateTime       @default(now())
+  reviewedAt  DateTime?
+  reviewedBy  String?
+  reviewNote  String?
+  evidence    String?        // Evidencia adjunta (ej: captura de examen)
+  expiresAt   DateTime?      // Fecha de expiración de la bonificación
+
+  student     User           @relation(fields: [studentId], references: [id])
+  reward      Reward         @relation(fields: [rewardId], references: [id])
+
+  @@unique([studentId, rewardId]) // Un estudiante puede canjear una recompensa una vez (si maxUses=1)
+  @@map("student_rewards")
+}
+
+enum RewardStatus {
+  SOLICITADO   // Pendiente de revisión docente
+  APROBADO     // Aprobado, bonificación activa
+  RECHAZADO    // Rechazado por docente
+  EXPIRADO     // Se venció el tiempo de uso
+  USADO        // La bonificación fue aplicada
 }
