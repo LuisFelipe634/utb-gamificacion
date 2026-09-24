@@ -639,9 +639,10 @@ export async function awardMeritcoinBadge(input: {
   return { awardId: award.id, txHash: award.tx_hash, chainStatus: award.chain_status }
 }
 
-export async function getMeritcoinAwardsByStudentId(studentId: string): Promise<MeritcoinAwardPayload[]> {
+export async function getMeritcoinAwardsByStudentId(studentId: string): Promise<MeritcoinAwardPayload[] | null> {
   const payload = await fetchJson(`/badges/student/${encodeURIComponent(studentId)}`, 8000)
-  if (!Array.isArray(payload)) return []
+  // null = backend inalcanzable (distinto de "cero awards", que es [])
+  if (!Array.isArray(payload)) return null
   return (payload as unknown[])
     .map((raw) => asRecord(raw))
     .filter((r): r is Record<string, unknown> => !!r && typeof r.id === "string" && !!asRecord(r.template))
@@ -770,7 +771,7 @@ export async function emitLocalBadgeToMeritcoin(userId: string, badgeId: string)
         description: badge.description,
         imageUrl: badge.iconUrl.startsWith("http") ? badge.iconUrl : null,
       }),
-      getMeritcoinAwardsByStudentId(studentId).catch(() => [] as MeritcoinAwardPayload[]),
+      getMeritcoinAwardsByStudentId(studentId).then((a) => a ?? []).catch(() => [] as MeritcoinAwardPayload[]),
     ])
 
     const already = existingAwards.find((a) => !asRecord(a as unknown)?.revoked && a.template?.id === template.id)

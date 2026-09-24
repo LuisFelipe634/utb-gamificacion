@@ -57,7 +57,9 @@ export async function GET() {
           }
         },
         badges: { include: { badge: true }, orderBy: { earnedAt: "desc" } },
-        missions: { where: { status: "EN_REVISION" }, include: { mission: true }, orderBy: { completedAt: "asc" } }
+        points: { orderBy: { createdAt: "desc" }, take: 20 },
+        rewards: { include: { reward: true, course: { include: { semester: true } } }, orderBy: { requestedAt: "desc" } },
+        missions: { where: { status: "EN_REVISION" }, include: { mission: { include: { course: true } } }, orderBy: { completedAt: "asc" } }
       }
     })
 
@@ -86,6 +88,9 @@ export async function GET() {
       const approvedCredits = Array.from(new Map(profile.enrollments.filter((enrollment) => enrollment.status === "APROBADO").map((enrollment) => [enrollment.courseId, enrollment.course.credits])).values()).reduce((total, credits) => total + credits, 0)
       const academicRisk = averageGrade < 3 ? "Requiere acompañamiento por promedio bajo" :
         approvedCredits < currentSemester * 12 ? "Avance de créditos por debajo de lo esperado" : null
+      const assignedStudentRewards = student.rewards.filter((reward) => assignedCourseIds.includes(reward.courseId) && (assignedPeriods.length === 0 || profile.enrollments.some((enrollment) => enrollment.courseId === reward.courseId && assignedPeriods.includes(enrollment.semesterCode))))
+      const pendingRewards = assignedStudentRewards.filter((reward) => reward.status === "SOLICITADO")
+      const rewardStatuses = [...new Set(assignedStudentRewards.map((reward) => reward.status))]
 
       return [{
         id: student.id,
@@ -97,6 +102,11 @@ export async function GET() {
         averageGrade,
         totalCredits: approvedCredits,
         totalProgramCredits: profile.program.totalCredits,
+        totalPoints: student.points.reduce((total, point) => total + point.amount, 0),
+        rewardStatus: pendingRewards.length ? "PENDIENTE" : rewardStatuses.includes("APROBADO") ? "APROBADO" : rewardStatuses.length ? "REALIZADO" : "SIN_NOVEDADES",
+        pendingRewardsCount: pendingRewards.length,
+        pendingRewardCourseIds: pendingRewards.map((reward) => reward.courseId),
+        rewardHistory: assignedStudentRewards.map((reward) => ({ id: reward.id, name: reward.reward.name, status: reward.status, pointsSpent: reward.pointsSpent, courseCode: reward.course.code, requestedAt: reward.requestedAt, reviewedAt: reward.reviewedAt })),
         completedCourses: profile.enrollments.filter((enrollment) => enrollment.status === "APROBADO").length,
         currentCourses: profile.enrollments.filter((enrollment) => enrollment.status === "CURSANDO").map((enrollment) => ({ code: enrollment.course.code, name: enrollment.course.name, credits: enrollment.course.credits, period: enrollment.semesterCode })),
         badges: student.badges.map(({ badge, earnedAt, evidence }) => ({ name: badge.name, icon: badge.iconUrl, category: badge.category, earnedAt, evidence })),
@@ -104,7 +114,7 @@ export async function GET() {
         suggestedCourses: suggestedCourses.map((course) => ({ code: course.code, name: course.name, credits: course.credits, semester: course.semester.number })),
         streak: calculateStreak(streakActivities.filter((activity) => activity.userId === student.id)),
         risk: academicRisk,
-        pendingMissions: student.missions.map(({ id, mission, evidence, completedAt, status }) => ({ id, title: mission.title, description: mission.description, points: mission.pointsReward, evidence, completedAt, status }))
+        pendingMissions: student.missions.map(({ id, mission, evidence, completedAt, status }) => ({ id, title: mission.title, description: mission.description, points: mission.pointsReward, evidence, completedAt, status, course: mission.course ? { code: mission.course.code, name: mission.course.name } : null }))
         ,assignedCourseIds: profile.enrollments.filter((enrollment) => assignedCourseIds.includes(enrollment.courseId) && ["CURSANDO","INSCRITO"].includes(enrollment.status) && (assignedPeriods.length === 0 || assignedPeriods.includes(enrollment.semesterCode))).map((enrollment) => enrollment.courseId)
       }]
     })
@@ -121,7 +131,10 @@ export async function GET() {
         studentCode: student.studentCode,
         averageGrade: student.averageGrade,
         totalCredits: student.totalCredits,
-        risk: student.risk
+        risk: student.risk,
+        totalPoints: student.totalPoints,
+        rewardStatus: student.rewardStatus,
+        pendingRewardsCount: student.pendingRewardCourseIds.filter((courseId) => courseId === assignment.courseId).length
       }))
     }))
 
