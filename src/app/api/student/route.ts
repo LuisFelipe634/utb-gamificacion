@@ -5,6 +5,7 @@ import { calculateStreak } from "@/lib/streak"
 import { normalizeMeritcoinStudentId } from "@/lib/meritcoin"
 import { recordDailyAcademicActivity } from "@/lib/activity"
 import { requireRole, jsonUnauthorized, jsonForbidden } from "@/lib/session"
+import { getAcademicSource, isExternalAcademicEnabled } from "@/lib/getAcademicSource"
 
 export async function GET() {
   function currentPeriod() {
@@ -29,6 +30,28 @@ export async function GET() {
     const todayActivity = await prisma.activity.findFirst({ where: { userId, action: "ACADEMIC_DAILY_ACTIVITY", createdAt: { gte: todayStart } } })
     if (!todayActivity) {
       await recordDailyAcademicActivity(userId, "student_profile")
+    }
+
+    // Fuente académica desacoplada: si UNIVERSITY_API_ENABLED=true usa HTTP externa, sino Prisma local
+    let externalAcademicFailed = false
+    let academicEnrollmentsData: { enrollments: import("@/lib/academicSource").AcademicEnrollment[]; academicHistory: { grade: number | null; status?: string; source?: string; credits?: number; course?: { credits?: number } }[] } | null = null
+
+    if (isExternalAcademicEnabled()) {
+      try {
+        const source = getAcademicSource()
+        const data = await source.getStudentAcademicData(userId as string)
+        if (data.profile) {
+          academicEnrollmentsData = { enrollments: data.profile.enrollments, academicHistory: [] }
+        }
+      } catch (e) {
+        if (e instanceof Error && e.message === "EXTERNAL_API_UNAVAILABLE") {
+          externalAcademicFailed = true
+        } else throw e
+      }
+    }
+
+    if (externalAcademicFailed) {
+      return NextResponse.json({ error: "Fuente académica externa no disponible" }, { status: 503 })
     }
 
     const user = await prisma.user.findUnique({
@@ -71,6 +94,10 @@ export async function GET() {
       return NextResponse.json({ error: "Usuario no encontrado" }, { status: 404 })
     }
 
+    // Override enrollments/program si viene de externa (sin modificar BD)
+    const effectiveEnrollments = academicEnrollmentsData ? academicEnrollmentsData.enrollments : user.studentProfile?.enrollments || []
+    const effectiveAcademicHistory = academicEnrollmentsData ? academicEnrollmentsData.academicHistory : user.studentProfile?.academicHistory || []
+
     // Calcular puntos totales
     const totalPoints = user.points.reduce((acc, p) => acc + p.amount, 0)
     const streakActivities = await prisma.activity.findMany({ where: { userId, action: "ACADEMIC_DAILY_ACTIVITY" }, select: { createdAt: true }, orderBy: { createdAt: "desc" } })
@@ -100,13 +127,13 @@ export async function GET() {
     )
 
     const approvedCredits = Array.from(new Map(
-      user.studentProfile?.enrollments
+      effectiveEnrollments
         .filter((enrollment) => enrollment.status === "APROBADO")
         .map((enrollment) => [enrollment.courseId, enrollment.course.credits]) || []
     ).values()).reduce((total, credits) => total + credits, 0)
-    const currentSemester = getCurrentSemester(user.studentProfile?.enrollments || [], user.studentProfile?.currentSemester || 1, currentPeriod())
+    const currentSemester = getCurrentSemester(effectiveEnrollments, user.studentProfile?.currentSemester || 1, currentPeriod())
     const averageGrade = user.studentProfile
-      ? getAverageGrade(user.studentProfile.academicHistory, user.studentProfile.enrollments, user.studentProfile.averageGrade)
+      ? getAverageGrade(effectiveAcademicHistory as Parameters<typeof getAverageGrade>[0], effectiveEnrollments as Parameters<typeof getAverageGrade>[1], user.studentProfile.averageGrade)
       : 0
 
     return NextResponse.json({

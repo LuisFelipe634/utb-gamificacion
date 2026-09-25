@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
-import { prisma } from "@/lib/prisma"
 import { getCreditLimit, getCurrentSemester } from "@/lib/academic"
+import { getAcademicSource } from "@/lib/getAcademicSource"
 
 function currentPeriod() {
   const now = new Date()
@@ -20,13 +20,17 @@ export async function GET() {
   }
 
   try {
-    const profile = await prisma.studentProfile.findUnique({
-      where: { userId: session.user.id },
-      include: {
-        program: { include: { semesters: { include: { courses: { include: { prerequisites: { include: { prerequisite: true } } } } }, orderBy: { number: "asc" } } } },
-        enrollments: { include: { course: { include: { semester: true } } } }
+    const source = getAcademicSource()
+    let profile
+    try {
+      const data = await source.getStudentAcademicData(session.user.id)
+      profile = data.profile
+    } catch (e) {
+      if (e instanceof Error && e.message === "EXTERNAL_API_UNAVAILABLE") {
+        return NextResponse.json({ error: "Fuente académica externa no disponible" }, { status: 503 })
       }
-    })
+      throw e
+    }
 
     if (!profile) return NextResponse.json({ error: "Perfil no encontrado" }, { status: 404 })
 

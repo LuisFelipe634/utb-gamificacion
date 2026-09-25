@@ -1,5 +1,5 @@
 type EnrollmentForSemester = {
-  status: string
+  status?: string
   semesterCode?: string
   courseId?: string
   course: { semester?: { number: number } }
@@ -18,11 +18,10 @@ type RewardCourseEnrollment = {
   source?: string
   semesterCode?: string
   courseId?: string
-  course?: {
+  course: { semester?: { number: number } } & {
     id?: string
     code?: string
     name?: string
-    semester?: { number?: number }
     credits?: number
   }
 }
