@@ -13,6 +13,20 @@ type GradeRecord = {
   course?: { credits?: number }
 }
 
+type RewardCourseEnrollment = {
+  status?: string
+  source?: string
+  semesterCode?: string
+  courseId?: string
+  course?: {
+    id?: string
+    code?: string
+    name?: string
+    semester?: { number?: number }
+    credits?: number
+  }
+}
+
 function creditsOf(record: GradeRecord): number {
   const credits = record.credits ?? record.course?.credits
   return typeof credits === "number" && credits > 0 ? credits : 1
@@ -89,4 +103,34 @@ export function getAverageGrade(
 
 export function getCreditLimit(averageGrade: number): number {
   return averageGrade >= 4.0 ? 20 : 18
+}
+
+export function filterRewardEligibleCourses(
+  enrollments: RewardCourseEnrollment[],
+  period?: string
+) {
+  const officialEnrollments = enrollments.filter((enrollment) => {
+    const isOfficialStatus = enrollment.status === "CURSANDO" || enrollment.status === "INSCRITO"
+    const isOfficialSource = enrollment.source === "UNIVERSITY"
+    const matchesPeriod = !period || enrollment.semesterCode === period
+    const hasCourseSemester = enrollment.course?.semester?.number !== undefined
+
+    return isOfficialStatus && isOfficialSource && matchesPeriod && hasCourseSemester
+  })
+
+  if (!officialEnrollments.length) {
+    return []
+  }
+
+  const currentSemester = getCurrentSemester(officialEnrollments, 1, period)
+
+  return officialEnrollments
+    .filter((enrollment) => enrollment.course?.semester?.number === currentSemester)
+    .map((enrollment) => ({
+      id: enrollment.courseId ?? enrollment.course?.id ?? "",
+      code: enrollment.course?.code ?? "",
+      name: enrollment.course?.name ?? "",
+      semester: enrollment.course?.semester?.number ?? 0,
+      period: enrollment.semesterCode ?? period ?? ""
+    }))
 }

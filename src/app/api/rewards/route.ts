@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { auth } from "@/lib/auth"
+import { filterRewardEligibleCourses } from "@/lib/academic"
 
 function currentPeriod() {
   const now = new Date()
@@ -41,25 +42,24 @@ export async function GET() {
       include: { reward: true, course: { include: { semester: true } } }
     })
 
+    const period = currentPeriod()
     const profile = await prisma.studentProfile.findUnique({
       where: { userId },
       include: {
         enrollments: {
           where: {
-            semesterCode: currentPeriod(),
-            status: { in: ["CURSANDO", "INSCRITO"] }
+            semesterCode: period,
+            status: { in: ["CURSANDO", "INSCRITO"] },
+            // Solo matrículas oficiales: las MANUAL son auto-selección del
+            // estudiante (POST /api/curriculum) y no deben habilitar canje
+            // hasta aval docente/PROA. Ver docs/arc42.md §11 F6/F7.
+            source: "UNIVERSITY" as const,
           },
           include: { course: { include: { semester: true } } }
         }
       }
     })
-    const enrolledCourses = profile?.enrollments.map((enrollment) => ({
-      id: enrollment.course.id,
-      code: enrollment.course.code,
-      name: enrollment.course.name,
-      semester: enrollment.course.semester.number,
-      period: enrollment.semesterCode
-    })) || []
+    const enrolledCourses = filterRewardEligibleCourses(profile?.enrollments ?? [], period)
 
     // Combinar información
     const rewardsWithStatus = rewards.map((reward) => {
@@ -110,6 +110,7 @@ export async function GET() {
     return NextResponse.json({
       rewards: rewardsWithStatus,
       enrolledCourses,
+      currentPeriod: period,
       stats: {
         totalPoints,
         totalRewards: rewards.length,
@@ -156,20 +157,30 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Recompensa no encontrada o inactiva" }, { status: 404 })
     }
 
+    const period = currentPeriod()
     const profile = await prisma.studentProfile.findUnique({
       where: { userId },
       include: {
         enrollments: {
           where: {
-            courseId,
-            semesterCode: currentPeriod(),
-            status: { in: ["CURSANDO", "INSCRITO"] }
-          }
+            semesterCode: period,
+            status: { in: ["CURSANDO", "INSCRITO"] },
+            source: "UNIVERSITY" as const,
+          },
+          include: { course: { include: { semester: true } } }
         }
       }
     })
-    if (!profile?.enrollments.length) {
-      return NextResponse.json({ error: "Solo puedes reclamar la recompensa para un curso que estás cursando" }, { status: 400 })
+
+    const eligibleCourses = filterRewardEligibleCourses(profile?.enrollments ?? [], period)
+    const isEligibleCourse = eligibleCourses.some((course) => course.id === courseId)
+
+    if (!isEligibleCourse) {
+      // Mensaje específico para el periodo vigente y solo matrículas oficiales
+      return NextResponse.json(
+        { error: `Solo puedes reclamar la recompensa para un curso matriculado oficialmente en el semestre actual del periodo ${period}. Verifica tus cursos vigentes en /malla.` },
+        { status: 400 }
+      )
     }
 
     // Verificar límite de usos

@@ -84,6 +84,7 @@ export default function Recompensas() {
   const [evidence, setEvidence] = useState<Record<string, string>>({})
   const [error, setError] = useState("")
   const [enrolledCourses, setEnrolledCourses] = useState<EnrolledCourse[]>([])
+  const [currentPeriod, setCurrentPeriod] = useState<string>("")
   const [targetCourse, setTargetCourse] = useState<Record<string, string>>({})
 
   const fetchRewards = async () => {
@@ -94,6 +95,7 @@ export default function Recompensas() {
       setRewards(data.rewards)
       setStats(data.stats)
       setEnrolledCourses(data.enrolledCourses || [])
+      if (data.currentPeriod) setCurrentPeriod(data.currentPeriod)
     } catch (err) {
       console.error("Error:", err)
       setError("Error al cargar las recompensas")
@@ -115,6 +117,7 @@ export default function Recompensas() {
         setRewards(data.rewards)
         setStats(data.stats)
         setEnrolledCourses(data.enrolledCourses || [])
+        if (data.currentPeriod) setCurrentPeriod(data.currentPeriod)
       })
       .catch((err) => {
         if (cancelled) return
@@ -134,13 +137,24 @@ export default function Recompensas() {
     const reward = rewards.find(r => r.id === rewardId)
     if (!reward) return
 
+    // Validación cliente: solo cursos matriculados oficialmente en el periodo vigente
+    const selectedCourseId = targetCourse[rewardId]
+    if (!selectedCourseId) {
+      setError("Debes seleccionar un curso matriculado en el periodo vigente")
+      return
+    }
+    if (enrolledCourses.length > 0 && !enrolledCourses.some((c) => c.id === selectedCourseId)) {
+      setError("Solo puedes reclamar recompensas para cursos en los que estás matriculado oficialmente este semestre")
+      return
+    }
+
     setRedeemingId(rewardId)
     setError("")
     try {
       const response = await fetch("/api/rewards", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ rewardId, courseId: targetCourse[rewardId], evidence: evidence[rewardId] })
+        body: JSON.stringify({ rewardId, courseId: selectedCourseId, evidence: evidence[rewardId] })
       })
 
       const data = await response.json()
@@ -216,6 +230,18 @@ export default function Recompensas() {
           <div className="flex items-center gap-2 text-red-700 dark:text-red-300">
             <AlertCircle className="w-5 h-5" />
             <span>{error}</span>
+          </div>
+        </div>
+      )}
+
+      {enrolledCourses.length === 0 && (
+        <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-4">
+          <div className="flex items-start gap-2 text-amber-800 dark:text-amber-200">
+            <AlertCircle className="w-5 h-5 mt-0.5 shrink-0" />
+            <div className="text-sm">
+              <p className="font-semibold">Sin cursos matriculados vigentes {currentPeriod ? `(${currentPeriod})` : ""}</p>
+              <p className="mt-1">No tienes cursos con matrícula oficial (<span className="font-mono">CURSANDO/INSCRITO · UNIVERSITY</span>) en el periodo actual. Solo los cursos matriculados oficialmente en este semestre pueden recibir recompensas. Verifica tu malla en <span className="font-medium">/malla</span>.</p>
+            </div>
           </div>
         </div>
       )}
@@ -375,9 +401,12 @@ export default function Recompensas() {
                      reward.earned!.status === "USADO" ? "✓ Ya utilizado" : "Expirado"}
                   </button>
                 ) : reward.canAfford && reward.canUse ? (
+                  enrolledCourses.length === 0 ? (
+                    <p className="text-xs text-amber-600 dark:text-amber-400 py-2">No tienes cursos matriculados oficialmente en {currentPeriod || "el periodo vigente"} para canjear.</p>
+                  ) : (
                   <div className="space-y-2">
                     <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300" htmlFor={`target-course-${reward.id}`}>
-                      Selecciona el curso objetivo
+                      Selecciona el curso objetivo <span className="font-normal text-gray-500">(solo del semestre actual en {currentPeriod || "el periodo vigente"})</span>
                     </label>
                     <select
                       id={`target-course-${reward.id}`}
@@ -385,7 +414,7 @@ export default function Recompensas() {
                       onChange={(event) => setTargetCourse((courses) => ({ ...courses, [reward.id]: event.target.value }))}
                       className="w-full rounded-lg border border-gray-300 p-2 text-sm dark:border-gray-600 dark:bg-gray-700"
                     >
-                      <option value="">Seleccionar curso...</option>
+                      <option value="">Seleccionar curso matriculado...</option>
                       {enrolledCourses.map((course) => <option key={course.id} value={course.id}>{course.code} · {course.name} · {course.period}</option>)}
                     </select>
                     {(
@@ -415,6 +444,7 @@ export default function Recompensas() {
                       )}
                     </button>
                   </div>
+                  )
                 ) : (
                   <button
                     disabled
