@@ -17,10 +17,10 @@ type CurriculumCourse = {
   name: string
   credits: number
   status: string
-  selected?: boolean
   source?: string | null
   inCurrentPeriod?: boolean
   grade?: number | null
+  prerequisitesMet?: boolean
   missingPrerequisites?: string[]
 }
 
@@ -143,7 +143,7 @@ const mockCurriculum: CurriculumSemester[] = [
 
 const statusConfig = {
   completed: {
-    label: "Completado",
+    label: "Aprobada",
     color: "bg-green-100 border-green-500 text-green-800 dark:bg-green-900/30 dark:border-green-600 dark:text-green-400",
     icon: CheckCircle
   },
@@ -153,12 +153,12 @@ const statusConfig = {
     icon: Clock
   },
   available: {
-    label: "Disponible",
+    label: "Habilitada",
     color: "bg-yellow-100 border-yellow-500 text-yellow-800 dark:bg-yellow-900/30 dark:border-yellow-600 dark:text-yellow-400",
     icon: Unlock
   },
   blocked: {
-    label: "Bloqueado",
+    label: "Bloqueada",
     color: "bg-gray-100 border-gray-400 text-gray-600 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-400",
     icon: Lock
   }
@@ -168,11 +168,8 @@ export default function MallaCurricular() {
   const [expandedSemesters, setExpandedSemesters] = useState<number[]>([])
   const [curriculum, setCurriculum] = useState<CurriculumSemester[] | null>(null)
   const [program, setProgram] = useState<ProgramData | null>(null)
-  const [creditLimit, setCreditLimit] = useState(18)
   const [period, setPeriod] = useState("")
   const [currentSemester, setCurrentSemester] = useState<number | null>(null)
-  const [selectionLoading, setSelectionLoading] = useState<string | null>(null)
-  const [selectionError, setSelectionError] = useState("")
   const [loadError, setLoadError] = useState("")
 
   const [retryKey, setRetryKey] = useState(0)
@@ -188,7 +185,6 @@ export default function MallaCurricular() {
       const data = await response.json()
       setCurriculum(data.semesters as CurriculumSemester[])
       setProgram({ name: data.program.name, code: data.program.code, version: data.program.version })
-      setCreditLimit(data.creditLimit || 18)
       setPeriod(data.period || "")
       setCurrentSemester(data.currentSemester || null)
       setExpandedSemesters(data.currentSemester ? [data.currentSemester] : [])
@@ -196,32 +192,6 @@ export default function MallaCurricular() {
       setLoadError("No se pudo cargar la malla curricular. Verifica tu conexión e intenta de nuevo.")
     })
   }, [retryKey])
-
-  const toggleCourseSelection = async (course: CurriculumCourse) => {
-    if (!course.id) return
-    setSelectionLoading(course.id)
-    setSelectionError("")
-    const wasSelected = !!course.selected || (course.status === "in_progress" && course.source === "MANUAL")
-    const selected = !wasSelected
-    try {
-      const response = await fetch("/api/curriculum", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ courseId: course.id, selected })
-      })
-      const result = await response.json()
-      if (!response.ok) throw new Error(result.error || "No se pudo actualizar la selección")
-      if (result.creditLimit) setCreditLimit(result.creditLimit)
-      setCurriculum((previous) => previous?.map((semester) => ({
-        ...semester,
-        courses: semester.courses.map((item) => item.id === course.id ? { ...item, selected, source: selected ? "MANUAL" : null, status: selected ? "in_progress" : "available" } : item)
-      })) || null)
-    } catch (error) {
-      setSelectionError(error instanceof Error ? error.message : "No se pudo actualizar la selección")
-    } finally {
-      setSelectionLoading(null)
-    }
-  }
 
   const toggleSemester = (semester: number) => {
     setExpandedSemesters((prev) =>
@@ -238,31 +208,18 @@ export default function MallaCurricular() {
     .flatMap((semester) => semester.courses)
     .filter((course) => course.status === "completed")
     .reduce((acc, course) => acc + course.credits, 0)
-  const isManual = (course: CurriculumCourse) =>
-    course.source === "MANUAL" && (course.selected || course.status === "in_progress")
-  const isUniversityInProgress = (course: CurriculumCourse) =>
-    course.status === "in_progress" && course.source !== "MANUAL"
-  // Solo cuentan las inscripciones del periodo vigente (las de periodos viejos no suman al semestre actual)
-  const isCurrentPeriod = (course: CurriculumCourse) => course.inCurrentPeriod ?? true
-  const currentSemesterCourses = displayedCurriculum
-    .filter((semester) => semester.semester === currentSemester)
-    .flatMap((semester) => semester.courses)
-    .filter(isCurrentPeriod)
-  const enrolledCourses = currentSemesterCourses
-    .filter((course) => isManual(course) || isUniversityInProgress(course))
-  const inProgressCredits = currentSemesterCourses
-    .filter(isUniversityInProgress)
-    .reduce((acc, course) => acc + course.credits, 0)
-  const manualSelectedCredits = currentSemesterCourses
-    .filter(isManual)
-    .reduce((acc, course) => acc + course.credits, 0)
-  const totalCurrentCredits = inProgressCredits + manualSelectedCredits
   const displayedInProgressCredits = displayedCurriculum
     .flatMap((semester) => semester.courses)
-    .filter(isUniversityInProgress)
+    .filter((course) => course.status === "in_progress")
     .reduce((acc, course) => acc + course.credits, 0)
   const approvedPercentage = displayedTotalCredits ? Math.round((displayedCompletedCredits / displayedTotalCredits) * 100) : 0
   const inProgressPercentage = displayedTotalCredits ? Math.round((displayedInProgressCredits / displayedTotalCredits) * 100) : 0
+
+  // Materias matriculadas este periodo — solo lectura (sin botón de agregar)
+  const enrolledCourses = displayedCurriculum
+    .flatMap((s) => s.courses)
+    .filter((c) => c.status === "in_progress")
+  const enrolledCredits = enrolledCourses.reduce((acc, c) => acc + c.credits, 0)
 
   // Si la carga falló y no hay datos, no mostrar la malla de ejemplo como si fuera real
   if (loadError && !curriculum) {
@@ -302,8 +259,6 @@ export default function MallaCurricular() {
         </p>
       </div>
 
-      {selectionError && <p className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm font-medium text-red-600 dark:border-red-900 dark:bg-red-900/20">{selectionError}</p>}
-
       {/* Plan actual + Resumen de Avance — bloque único */}
       <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-xs dark:border-gray-700 dark:bg-gray-800">
         {/* Cabecera unificada */}
@@ -314,22 +269,19 @@ export default function MallaCurricular() {
             </div>
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-blue-600 dark:text-blue-400">
-                Plan {program ? `${program.version}` : "2019"}{period ? ` · ${period}` : ""} · Semestre {currentSemester || "-"}
+                Plan {program ? `${program.version}` : "2019"}{period ? ` · ${period}` : ""} · Semestre actual {currentSemester || "-"}
               </p>
               <h2 className="mt-1 text-xl font-bold text-slate-900 dark:text-white">
                 Plan de estudios y avance
               </h2>
               <p className="mt-1 text-sm text-slate-500 dark:text-gray-400">
-                {displayedCompletedCredits} aprobados + {displayedInProgressCredits} en curso / {displayedTotalCredits} créditos · {totalCurrentCredits} / {creditLimit} créditos este semestre
+                {displayedCompletedCredits} aprobados + {displayedInProgressCredits} en curso / {displayedTotalCredits} créditos
               </p>
             </div>
           </div>
           <div className="flex items-center gap-3 shrink-0">
             <span className="text-3xl font-bold text-blue-600 dark:text-blue-400">
               {approvedPercentage}%
-            </span>
-            <span className="hidden sm:inline-flex rounded-full bg-blue-50 px-3 py-2 text-sm font-semibold text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
-              {totalCurrentCredits} / {creditLimit} créditos
             </span>
           </div>
         </div>
@@ -350,10 +302,10 @@ export default function MallaCurricular() {
           <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-sky-400" />En curso ({displayedInProgressCredits} cr)</span>
         </div>
 
-        {/* Materias en curso / seleccionadas */}
+        {/* Materias matriculadas este periodo — solo lectura, sin botón */}
         <div className="mt-6">
           <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-slate-500 dark:text-gray-400">
-            Materias en curso / seleccionadas · {enrolledCourses.length ? `${enrolledCourses.length} materias` : "sin materias"} {enrolledCourses.length ? `· ${totalCurrentCredits} créditos (${inProgressCredits} cursando + ${manualSelectedCredits} planeados)` : ""}
+            Materias matriculadas este periodo {enrolledCourses.length ? `· ${enrolledCourses.length} materias · ${enrolledCredits} créditos` : "· sin materias"}
           </p>
           {enrolledCourses.length ? (
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -364,14 +316,16 @@ export default function MallaCurricular() {
                 >
                   <p className="font-mono text-[11px] text-slate-400">{course.code}</p>
                   <p className="mt-1 text-sm font-semibold text-slate-900 dark:text-white leading-tight">{course.name}</p>
-                  <p className="mt-2 text-xs text-slate-500">{course.credits} créditos {course.source === "MANUAL" && (course.selected || course.status === "in_progress") ? "· Planeada" : course.status === "in_progress" ? "· Cursando" : ""}</p>
+                  <p className="mt-2 text-xs text-slate-500">{course.credits} créditos · Cursando</p>
                 </div>
               ))}
             </div>
           ) : (
-            <p className="text-sm text-slate-500 dark:text-gray-400">No hay materias seleccionadas o en curso para este semestre.</p>
+            <p className="text-sm text-slate-500 dark:text-gray-400">No hay materias matriculadas para este periodo.</p>
           )}
         </div>
+
+
 
         {/* Leyenda */}
         <div className="mt-6 flex flex-wrap gap-4 border-t border-slate-100 pt-4 dark:border-gray-700">
@@ -384,7 +338,7 @@ export default function MallaCurricular() {
         </div>
       </div>
 
-      {/* Curriculum Grid */}
+      {/* Curriculum Grid — solo lectura */}
       <div className="space-y-4">
         {displayedCurriculum.map((semester) => {
           const isExpanded = expandedSemesters.includes(semester.semester)
@@ -406,9 +360,9 @@ export default function MallaCurricular() {
                      <span className="text-white font-bold text-sm">{semester.semester}</span>
                    </div>
                    <div className="text-left">
-                     <h3 className="font-semibold text-gray-900 dark:text-white">
-                       Semestre {semester.semester}
-                     </h3>
+                      <h3 className="font-semibold text-gray-900 dark:text-white">
+                        Semestre {semester.semester}
+                      </h3>
                      <p className="text-sm text-gray-500 dark:text-gray-400">
                        {completedCount}/{totalCount} cursos completados · {semester.completedCredits ?? 0} créditos aprobados
                        {(semester.inProgressCredits ?? 0) > 0 && ` · ${semester.inProgressCredits} créditos cursando`}
@@ -445,19 +399,14 @@ export default function MallaCurricular() {
                             {course.status === "blocked" && course.missingPrerequisites?.length ? (
                               <p className="mt-2 text-xs font-medium">Requiere: {course.missingPrerequisites.join(", ")}</p>
                             ) : null}
+                            {course.status === "available" && (
+                              <p className="mt-2 text-xs font-medium text-yellow-700 dark:text-yellow-300">
+                                Habilitada {course.missingPrerequisites?.length ? "" : "· prerrequisitos cumplidos"}
+                              </p>
+                            )}
                           </div>
                           <config.icon className="w-5 h-5 opacity-75" />
                         </div>
-                        {curriculum && course.id && course.status === "available" && (
-                          <button
-                            type="button"
-                            onClick={() => toggleCourseSelection(course)}
-                            disabled={selectionLoading === course.id}
-                            className="mt-3 w-full rounded-lg px-3 py-2 text-sm font-semibold bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
-                          >
-                            {selectionLoading === course.id ? "Actualizando..." : "Agregar al semestre"}
-                          </button>
-                        )}
                       </div>
                     )
                   })}

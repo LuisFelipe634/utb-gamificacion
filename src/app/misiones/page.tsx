@@ -103,7 +103,11 @@ export default function Misiones() {
 
       if (!response.ok) {
         const error = await response.json()
-        throw new Error(error.error || "Error al procesar misión")
+        // El backend para misiones autoVerify devuelve { error, message, progress }
+        // `message` contiene el detalle de verificación (ej: "Te faltan 3 días...")
+        const detail = error.message ? ` ${error.message}` : ""
+        const progressInfo = typeof error.progress === "number" ? ` (progreso: ${error.progress}%)` : ""
+        throw new Error(`${error.error || "Error al procesar misión"}${detail}${progressInfo}`)
       }
 
       // Recargar misiones

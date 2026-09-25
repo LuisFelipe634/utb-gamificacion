@@ -47,14 +47,6 @@ export async function GET() {
       }
     }
     const approvedIds = new Set(profile.enrollments.filter((enrollment) => enrollment.status === "APROBADO").map((enrollment) => enrollment.courseId))
-    const selectedIds = new Set(
-      profile.enrollments
-        .filter((enrollment) => enrollment.status === "CURSANDO" && enrollment.semesterCode === period && enrollment.course.semester?.number === currentSemester)
-        .map((enrollment) => enrollment.courseId)
-    )
-    const selectedCredits = profile.enrollments
-      .filter((enrollment) => enrollment.status === "CURSANDO" && enrollment.semesterCode === period && enrollment.course.semester?.number === currentSemester)
-      .reduce((total, enrollment) => total + enrollment.course.credits, 0)
 
     const creditLimit = getCreditLimit(profile.averageGrade)
 
@@ -82,7 +74,7 @@ export async function GET() {
         const missingPrerequisites = course.prerequisites
           .filter(({ prerequisite }) => !approvedIds.has(prerequisite.id))
           .map(({ prerequisite }) => `${prerequisite.code} - ${prerequisite.name}`)
-        return { id: course.id, code: course.code, name: course.name, credits: course.credits, status: status === "blocked" && prerequisitesMet ? "available" : status, grade: enrollment?.grade ?? null, selected: selectedIds.has(course.id), source: enrollment?.source ?? null, inCurrentPeriod: enrollment ? enrollment.semesterCode === period : false, prerequisitesMet, missingPrerequisites }
+        return { id: course.id, code: course.code, name: course.name, credits: course.credits, status: status === "blocked" && prerequisitesMet ? "available" : status, grade: enrollment?.grade ?? null, source: enrollment?.source ?? null, inCurrentPeriod: enrollment ? enrollment.semesterCode === period : false, prerequisitesMet, missingPrerequisites }
       })
       const completedCredits = courses
         .filter((course) => course.status === "completed")
@@ -101,65 +93,17 @@ export async function GET() {
       }
     })
 
-    return NextResponse.json({ program: { name: profile.program.name, code: profile.program.code, version: profile.program.version }, period, currentSemester, selectedCredits, creditLimit, semesters })
+    const totalSemesters = profile.program.semesters.length || 10
+    const nextSemester = Math.min(currentSemester + 1, totalSemesters)
+    const nextSemesterAvailableCourses = semesters
+      .filter((s) => s.semester === nextSemester)
+      .flatMap((s) => s.courses.filter((c) => c.status === "available" && c.prerequisitesMet))
+      .map((c) => ({ id: c.id, code: c.code, name: c.name, credits: c.credits }))
+
+    return NextResponse.json({ program: { name: profile.program.name, code: profile.program.code, version: profile.program.version }, period, currentSemester, nextSemester, nextSemesterAvailableCourses, creditLimit, semesters })
   } catch (error) {
     console.error("Error fetching curriculum:", error)
     return NextResponse.json({ error: "Error interno del servidor" }, { status: 500 })
   }
 }
 
-export async function POST(request: Request) {
-  const session = await auth()
-  if (!session?.user?.id) return NextResponse.json({ error: "No autorizado" }, { status: 401 })
-  if (session.user.role !== "STUDENT") return NextResponse.json({ error: "Solo los estudiantes pueden seleccionar cursos" }, { status: 403 })
-
-  try {
-    const { courseId, selected } = await request.json()
-    if (typeof courseId !== "string" || typeof selected !== "boolean") return NextResponse.json({ error: "Selección inválida" }, { status: 400 })
-    const profile = await prisma.studentProfile.findUnique({ where: { userId: session.user.id }, include: { enrollments: { include: { course: { include: { semester: true } } } }, program: true } })
-    const course = await prisma.course.findUnique({ where: { id: courseId }, include: { prerequisites: { include: { prerequisite: true } } } })
-    if (!profile || !course || course.programId !== profile.programId) return NextResponse.json({ error: "Curso no disponible" }, { status: 404 })
-    if (profile.enrollments.some((enrollment) => enrollment.courseId === courseId && enrollment.status === "APROBADO")) return NextResponse.json({ error: "El curso ya fue aprobado" }, { status: 400 })
-
-    const approvedIds = new Set(profile.enrollments.filter((enrollment) => enrollment.status === "APROBADO").map((enrollment) => enrollment.courseId))
-    if (!course.prerequisites.every(({ prerequisite }) => approvedIds.has(prerequisite.id))) return NextResponse.json({ error: "Aún no cumples los prerrequisitos" }, { status: 400 })
-
-    const period = currentPeriod()
-    const currentSemester = getCurrentSemester(profile.enrollments, profile.currentSemester, period)
-    const currentEnrollments = profile.enrollments.filter((enrollment) => enrollment.status === "CURSANDO" && enrollment.semesterCode === period && enrollment.course.semester?.number === currentSemester)
-    const existing = currentEnrollments.find((enrollment) => enrollment.courseId === courseId)
-    // Inscripción del periodo vigente en cualquier estado (para no violar @@unique)
-    const periodEnrollment = profile.enrollments.find((enrollment) => enrollment.courseId === courseId && enrollment.semesterCode === period && enrollment.status !== "APROBADO")
-
-    const creditLimit = getCreditLimit(profile.averageGrade)
-
-    if (selected && !existing) {
-      const credits = currentEnrollments.reduce((total, enrollment) => total + enrollment.course.credits, 0) + course.credits
-      if (credits > creditLimit) return NextResponse.json({ error: `No puedes superar ${creditLimit} créditos en el semestre` }, { status: 400 })
-      if (periodEnrollment) {
-        // Ya existe inscripción del periodo (ej. INSCRITO): actualizar a CURSANDO en vez de crear duplicado
-        await prisma.enrollment.update({ where: { id: periodEnrollment.id }, data: { status: "CURSANDO" } })
-      } else {
-        await prisma.enrollment.create({ data: { studentId: profile.id, courseId, semesterCode: period, status: "CURSANDO", source: "MANUAL" } })
-      }
-    } else if (!selected && existing) {
-      // Solo permitir quitar si la inscripción fue creada manualmente (source: MANUAL)
-      const enrollmentRecord = await prisma.enrollment.findUnique({ where: { id: existing.id }, select: { source: true } })
-      if (!enrollmentRecord || enrollmentRecord.source !== "MANUAL") {
-        return NextResponse.json({ error: "No se pueden quitar materias que ya estás cursando (provienen de la universidad)" }, { status: 400 })
-      }
-      await prisma.enrollment.delete({ where: { id: existing.id } })
-    } else if (!selected && !existing) {
-      // Limpieza de manuales de periodos anteriores: permitir quitarlas aunque ya no estén vigentes
-      const staleManual = profile.enrollments.find((enrollment) => enrollment.courseId === courseId && enrollment.source === "MANUAL" && enrollment.status !== "APROBADO")
-      if (staleManual) {
-        await prisma.enrollment.delete({ where: { id: staleManual.id } })
-      }
-    }
-
-    return NextResponse.json({ selected, selectedCredits: currentEnrollments.reduce((total, enrollment) => total + enrollment.course.credits, 0) + (selected && !existing ? course.credits : !selected && existing ? -course.credits : 0), creditLimit })
-  } catch (error) {
-    console.error("Error updating course selection:", error)
-    return NextResponse.json({ error: "Error interno del servidor" }, { status: 500 })
-  }
-}
