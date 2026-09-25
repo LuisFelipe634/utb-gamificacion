@@ -38,6 +38,12 @@ src/lib/ (dominio usado por las rutas)
   missionRules.ts    # computeConsecutiveAccessStreak, countUniqueCompletedMissions (+ tests)
   missionVerification.ts # verifyMission(autoVerify por verificationKey/Value)
   meritcoin.ts       # Cliente FastAPI Meritcoin, normalizeMeritcoinStudentId, emisión ERC-1155
+  academicSource.ts  # Interfaz AcademicSource + tipos (malla, estudiante, programa)
+  getAcademicSource.ts # Factory: Prisma o HTTP según UNIVERSITY_API_ENABLED
+  prismaAcademicSource.ts # Origen académico sobre Prisma (comportamiento previo)
+  httpAcademicSource.ts   # Origen académico sobre la API externa (:3001)
+
+utb-external-api/    # Servicio FastAPI mock que simula la API de la universidad
 
 src/middleware.ts    # Guard de páginas: sin cookie authjs.session-token -> /login
 prisma/schema.prisma # 22 modelos (fuente de verdad de tablas/enums)
@@ -69,12 +75,13 @@ Convención: `GET` nunca muta salvo registrar actividad diaria idempotente (`/ap
 ### Estudiante
 
 **`student/route.ts` (STUDENT)**
-- `GET`: usuario + `studentProfile(program, enrollments)` + `totalPoints` + nivel + `recentBadges` + `streak`. Si hoy no hay `ACADEMIC_DAILY_ACTIVITY`, la crea.
+- `GET`: usuario + `studentProfile(program, enrollments)` + `totalPoints` + nivel + `recentBadges` + `streak`. Si hoy no hay `ACADEMIC_DAILY_ACTIVITY`, la crea. El perfil y las inscripciones se leen vía `getAcademicSource()`.
 - `PATCH { walletAddress?, meritcoinStudentId? }`: normaliza `STU-x`, valida `0x...`, guarda y devuelve `{ walletAddress, meritcoinStudentId }`.
 
 **`curriculum/route.ts` (STUDENT)**
-- `GET`: programa + semestres + cursos con `prerequisites`, cruza `Enrollment` para estado `APROBADO/EN_CURSO/BLOQUEADO/DISPONIBLE`, calcula créditos y `getCreditLimit/getCurrentSemester`.
+- `GET`: programa + semestres + cursos con `prerequisites`, cruza `Enrollment` para estado `APROBADO/EN_CURSO/BLOQUEADO/DISPONIBLE`, calcula créditos y `getCreditLimit/getCurrentSemester`. Lee la malla vía `getAcademicSource()`.
 - `POST { courseIds[] }`: guarda selección del periodo actual.
+- Con `UNIVERSITY_API_ENABLED=true`, ambas lectura de datos académicos pasan por `HttpAcademicSource`; si la API externa no responde, devuelven `503 {error:"Fuente académica externa no disponible"}` en lugar de `500`.
 
 **`stats/route.ts` (STUDENT)**
 - `GET`: `{ overall: { creditsApproved, totalCredits, averageGrade, coursesCompleted, currentSemester }, bySemester[], gamification: { points, level } }`.

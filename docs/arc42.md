@@ -45,8 +45,10 @@ Plataforma web gamificada para que el estudiante de la Universidad Tecnológica 
 | Correo | `RESEND_API_KEY` (real) → `SMTP_HOST` (solo log estructurado, nodemailer pendiente) → `console-dev` (solo no-prod). En prod sin proveedor: error 500 controlado | `src/lib/emailProvider.ts`, `.env.example` |
 | Password | Mínimo 8 caracteres, 1 mayúscula y 1 número (`validatePassword`); hash bcrypt 12 en registro | `src/lib/institutionalEmail.ts` |
 | Integración | Meritcoin FastAPI externo (`MERITCOIN_API_URL`), emisión ERC-1155, `STU-{id}` + wallet | `src/lib/meritcoin.ts`, `.env.example` |
-| Runtime | Node.js 18+, `npm run dev/build/start` | `README.md`, `setup.sh` |
-| Datos iniciales | Seed base único `prisma/seed.ts` (ISCO 2019: 10 semestres, 55 cursos, 162 créditos) | `prisma/seed.ts` |
+| Fuente académica | Desacoplada tras `AcademicSource`: `PrismaAcademicSource` (por defecto) o `HttpAcademicSource` según `UNIVERSITY_API_ENABLED=true` + `UNIVERSITY_API_URL` | `src/lib/getAcademicSource.ts`, `.env.example` |
+| Despliegue | `docker compose up -d` (3 servicios: `app`, `db` PostgreSQL 16, `external-academic-api`). Alternativa local Node + PostgreSQL vía `./setup.sh` (solo Linux/macOS) | `docker-compose.yml`, `Dockerfile`, `README.md` §Instalación |
+| Runtime | Node.js 20 en imagen `node:20-alpine`. Fuera de Docker: Node.js 18+, `npm run dev/build/start` | `Dockerfile`, `README.md`, `setup.sh` |
+| Datos iniciales | Seed base único `prisma/seed.ts` (ISCO 2019: 10 semestres, 55 cursos, 162 créditos). Destructivo: 22 `deleteMany()`. En Docker solo se ejecuta si la tabla `users` está vacía | `prisma/seed.ts`, `prisma/seed-if-empty.ts` |
 | Import académico | CSV PROA/Banner → `AllowedStudent` (`email,studentCode,programCode,admissionYear,fullName?`) | `scripts/import-proa.ts`, `npm run db:import-proa` |
 
 ---
@@ -97,15 +99,20 @@ flowchart TB
         PAGES[src/app páginas\n12 rutas]
         API[src/app/api\n17 route handlers]
         LIB[src/lib\ndominio 12 módulos]
+        SRC[AcademicSource\nfactory Prisma o HTTP]
         COMP[src/components\nAppShell/Sidebar/Header/providers]
     end
     PAGES --> API
     API --> LIB
-    LIB --> PG[(PostgreSQL)]
+    LIB --> SRC
+    SRC --> PG[(PostgreSQL)]
+    SRC -.-> EXT[external-academic-api\nFastAPI mock :3001]
     LIB -.-> MC[Meritcoin]
     LIB -.-> MAIL[Resend/SMTP]
     MW[src/middleware.ts] --> PAGES
 ```
+
+> `AcademicSource` es el único punto de acceso a datos académicos de `curriculum` y `student`. Con `UNIVERSITY_API_ENABLED=false` opera sobre Prisma y la API externa no participa.
 
 ### Nivel 2 — Backend (`src/app/api` + `src/lib`)
 
@@ -114,13 +121,14 @@ flowchart TB
 | Auth login | `api/auth/[...nextauth]/route.ts`, `lib/auth.ts`, `lib/session.ts` | Login `@utb.edu.co` (regex exacta) + bcrypt, JWT `{id, role}`, `requireRole(string|string[])`, `requireAdmin`, `jsonUnauthorized/Forbidden` |
 | Registro institucional | `api/auth/request-code/route.ts`, `api/auth/verify-code/route.ts`, `lib/institutionalEmail|emailProvider|rateLimit.ts` | OTP SHA-256 15 min/un solo uso/5 intentos, rate-limit 5/h y 10/h, JIT `User+StudentProfile+Notification`, `meritcoinStudentId=NULL` |
 | Admin | `api/admin/teachers/route.ts` | Alta docente solo `ADMIN` (bcrypt 12). Sin auto-registro `TEACHER` |
-| Estudiante | `api/student`, `api/curriculum`, `api/stats` | Perfil+racha, malla con estados por prerrequisito, agregados académicos |
+| Estudiante | `api/student`, `api/curriculum`, `api/stats` | Perfil+racha, malla con estados por prerrequisito, agregados académicos. `student` y `curriculum` leen vía `getAcademicSource()` |
 | Gamificación | `api/missions`, `api/badges`, `api/badges/award` | Misiones manuales/automáticas, insignias locales + espejo y emisión Meritcoin |
 | Recompensas | `api/rewards`, `api/teacher/rewards` | Catálogo, solicitud `{rewardId, courseId}` (`@@unique[studentId,rewardId,courseId]`, pendiente por curso, débito `CANJE_RECOMPENSA`), aprobación docente |
 | Acompañamiento | `api/teacher`, `api/teacher/notify` | Estudiantes por curso del periodo, revisión de misiones, ruta recomendada + `Activity` |
 | Transversales | `api/notifications`, `api/recommendations`, `api/search` | Notificaciones, motor de recomendaciones, búsqueda sin tildes |
 | Reglas | `lib/academic|recommendations|streak|activity|missionRules|missionVerification|meritcoin.ts` | Cálculos y cliente Meritcoin; `academic` y `APROBAR_CREDITOS_SEMESTRE` excluyen `MANUAL` |
-| Datos | `prisma/schema.prisma` (24 modelos), `seed.ts`, `backfill-meritcoin-ids.ts`, `scripts/import-proa.ts` | Contrato de datos, datos iniciales ISCO 2019, backfill `STU-{id}`, import CSV → `AllowedStudent` |
+| Fuente académica | `lib/academicSource.ts` (interfaz + tipos), `getAcademicSource.ts` (factory), `prismaAcademicSource.ts`, `httpAcademicSource.ts` | Abstracción del origen de datos de malla y estudiante. `EXTERNAL_API_UNAVAILABLE` → las rutas responden 503, no 500 |
+| Datos | `prisma/schema.prisma` (24 modelos), `seed.ts`, `seed-if-empty.ts`, `backfill-meritcoin-ids.ts`, `scripts/import-proa.ts` | Contrato de datos, datos iniciales ISCO 2019, seed condicional, backfill `STU-{id}`, import CSV → `AllowedStudent` |
 
 ### Nivel 2 — Frontend (`src/app` + `src/components`)
 
@@ -234,18 +242,28 @@ Periodo actual en todas las rutas: `YYYY-1` (ene–jun) / `YYYY-2` (jul–dic), 
 
 ```mermaid
 flowchart LR
-    DEV[Nodo app\nnpm run build + start\nNext.js] --> PG[(PostgreSQL\nDATABASE_URL)]
-    DEV -. MERITCOIN_API_URL .-> MC[Meritcoin FastAPI]
-    DEV -. RESEND_API_KEY/SMTP_HOST .-> MAIL[Resend/SMTP UTB]
-    B[Browser] --> DEV
+    subgraph COMPOSE[docker compose]
+        APP[app\nNext.js 20-alpine :3000]
+        DBD[(db\nPostgreSQL 16 :5432\nvolumen pgdata)]
+        EXA[external-academic-api\nFastAPI :3001]
+    end
+    APP -->|DATABASE_URL @db| DBD
+    APP -->|UNIVERSITY_API_URL| EXA
+    APP -. MERITCOIN_API_URL .-> MC[Meritcoin FastAPI]
+    APP -. RESEND_API_KEY/SMTP_HOST .-> MAIL[Resend/SMTP UTB]
+    B[Browser] --> APP
 ```
 
 | Elemento | Detalle |
 |---|---|
-| Build | `npm run build` → `npm run start` (prod) o `npm run dev` (hot reload). Verificado: 17 handlers API + 12 páginas de funcionalidad (`/registro` incluida) + `/` + `_not-found` |
-| Config | `.env`: `DATABASE_URL`, `NEXTAUTH_SECRET/URL` (mínimo 32 caracteres), `MERITCOIN_*`, `RESEND_API_KEY` o `SMTP_HOST/PORT/USER/PASS`, `EMAIL_FROM`, `ADMIN_EMAIL` (ver `.env.example`) |
-| DB | `npm run db:generate` → `db:push` → `db:seed` → (`db:import-proa ./proa.csv`, `db:backfill-meritcoin`, `db:studio`) |
-| Instalación nueva | `./setup.sh` (Node vía nvm, Postgres, `.env`, push+seed) o `--skip-db`. `setup.sh` aún no genera las vars de correo/ADMIN (ver §11) |
+| Build | `docker compose up -d`. Imagen `node:20-alpine`; no requiere Node ni PostgreSQL en el host. El `.env` se inyecta por `env_file` en runtime, nunca horneado en la imagen (`.dockerignore`) |
+| Servicios | `app` :3000 · `db` PostgreSQL 16 :5432 (volumen `utb-gamificacion_pgdata`, sobrevive a `down`) · `external-academic-api` :3001 |
+| Orden de arranque | `app` espera `db` healthy. Dentro: `prisma db push` → `db:seed-if-empty` → `npm run dev` |
+| Seed en arranque | `prisma/seed-if-empty.ts` siembra **solo si `users` está vacía**; `seed.ts` es destructivo (22 `deleteMany()`). `SEED_IF_EMPTY=false` lo desactiva. Así un equipo nuevo levanta con datos y nadie pierde los suyos en un `up` posterior |
+| Config | `.env` (plantilla `.env.example`): `DATABASE_URL`, `NEXTAUTH_SECRET/URL`, `MERITCOIN_*`, `RESEND_API_KEY` o `SMTP_HOST/PORT/USER/PASS`, `EMAIL_FROM`, `ADMIN_EMAIL`, `UNIVERSITY_API_URL/KEY/ENABLED` |
+| DB (fuera de Docker) | `db:generate` → `db:push` → `db:seed` → (`db:import-proa ./proa.csv`, `db:backfill-meritcoin`, `db:studio`) |
+| Instalación nueva | Docker: `cp .env.example .env` + `docker compose up -d`. Local: `./setup.sh` (Node vía nvm, Postgres, `.env`, push+seed) o `--skip-db`; solo Linux/macOS. `setup.sh` aún no genera las vars de correo/ADMIN (ver §11) |
+| Choke point despliegue | Un PostgreSQL local en el 5432 choca con el puerto publicado del contenedor. Detenerlo o remapear el puerto en `docker-compose.yml` |
 | Credenciales seed | `demo@utb.edu.co/demo123`, `demo2@utb.edu.co/demo1234`, `juanito@utb.edu.co/demo1234`, `docente@utb.edu.co/demo123` (datos demo con inconsistencias, ver §11) |
 
 ---
@@ -264,6 +282,7 @@ flowchart LR
 - **Rate-limit**: en memoria, sin persistencia ni limpieza de buckets; suficiente para piloto single-instance.
 - **UX**: tarjetas `rounded-xl border bg-white dark:bg-gray-800`, acento azul/cian, `next-themes` (default light), responsive móvil/escritorio. `/registro` y `/login` sin `Sidebar/Header` (`AppShell.publicRoutes`).
 - **Calidad de código**: `npm run lint` (ESLint next+TS; 7 warnings preexistentes), `npm run test:unit` (`academic.test.ts`, `missionRules.test.ts`, `institutionalEmail.test.ts`), Prettier para formato.
+- **Fuente académica**: `getAcademicSource()` se resuelve en cada request; `AcademicStudentData.source` (`"prisma" | "http"`) deja auditar de dónde salió la respuesta. Con la API externa caída, `HttpAcademicSource` lanza `EXTERNAL_API_UNAVAILABLE` y `curriculum`/`student` responden `503`, para que el fallo sea distinguible de un error de la app.
 
 ---
 
@@ -279,6 +298,10 @@ flowchart LR
 | Rate-limit en memoria | Redis/Upstash desde el día 1 | Cero infra extra para piloto; documentado para migrar en multi-instancia | Implementado con deuda |
 | `StudentReward @@unique[studentId,rewardId,courseId]` | `@@unique[studentId,rewardId]` original | El original impedía `maxUses:2` (P2002); el nuevo permite re-uso por curso | Implementado |
 | `PointSource.CANJE_RECOMPENSA` para débitos | Reutilizar `MISION_COMPLETADA` negativo | El re-uso contaminaba agregados por `source`; el nuevo enum separa canjes | Implementado |
+| Interfaz `AcademicSource` + toggle por env | Cambiar las queries de `curriculum`/`student` in situ cuando llegue la API real | Permite validar la integración con el mock sin reescribir las rutas ni tocar la BD host; el dominio no depende del origen | Implementado |
+| `external-academic-api` (FastAPI) como mock | Apuntar la app a la API real de la universidad de una vez | Falta contrato real; el mock fija la forma de la respuesta y sirve de tests de contrato mientras tanto | Vigente, pendiente contrato real |
+| `docker compose` con 3 servicios | `setup.sh` como flujo principal | `setup.sh` es solo Linux/macOS y exige Postgres en el host; Docker hace el proyecto reproducible en Windows/macOS/Linux sin Node ni Postgres | Implementado (`setup.sh` queda como Opción B) |
+| Seed condicional (`seed-if-empty`) en el arranque | `db:seed` en el `command` del contenedor | `seed.ts` es destructivo (22 `deleteMany()`); ejecutarlo en cada `up` borraría los datos de quien ya trabaja | Implementado |
 | `RiskAlert.student → StudentProfile` con cascade | `studentId` suelto sin FK | Evita huérfanos y permite joins; `Recommendation` ya tenía FK | Implementado |
 | `MANUAL` excluido de promedio y `APROBAR_CREDITOS_SEMESTRE` | Cambiar `POST /curriculum` a `INSCRITO` + aval | Parche defensivo mínimo sin romper UX de planificación; el cambio de estado queda pendiente | Mitigación parcial |
 | Client Components con `fetch` | Server Components + actions | Interactividad y simplicidad; documentado en `src/app/README.md` | Vigente |

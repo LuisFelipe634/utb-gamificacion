@@ -63,4 +63,5 @@ public/utb-logotipo.png # Logo usado en Sidebar/Login
 - Nuevas páginas: carpeta `src/app/<ruta>/page.tsx` con `"use client"`, fetch a `/api/*`, estados `loading/error/data`, iconos lucide-react.
 - Rutas de estudiante en español (`/malla`, `/logros`), de docente (`/docentes`, `/perfil-docente`).
 - No llamar a Prisma ni a `MERITCOIN_*` desde páginas: siempre pasar por `/api`.
+- `/malla` y `/perfil` no cambian su contrato aunque cambie el origen de los datos: el backend resuelve con `getAcademicSource()`. Para pasar de Prisma a la API externa basta `UNIVERSITY_API_ENABLED=true` en `.env`; si la API cae, esas rutas responden `503`.
 - Proteger la página también en `middleware.ts`/`AppShell` si es privada, además del `requireRole` del API
