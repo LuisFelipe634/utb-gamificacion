@@ -1,0 +1,32 @@
+# Dependencias y artefactos de build: se reinstalan/recompilan dentro de la imagen
+node_modules
+.next
+out
+build
+*.tsbuildinfo
+next-env.d.ts
+
+# Sistema de control de versiones
+.git
+.gitignore
+.github
+
+# Secretos: el contenedor recibe el .env via env_file en runtime (docker-compose.yml)
+.env
+.env.*
+!.env.example
+
+# Docs y archivos que la app no necesita
+docs
+README.md
+setup.sh
+*.md
+
+# Utilidades de desarrollo
+scripts
+.eslintcache
+npm-debug.log*
+yarn-error.log*
+.DS_Store
+.vscode
+.idea

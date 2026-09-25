@@ -186,13 +186,54 @@ Estructura detallada del frontend: `src/app/README.md`. Estructura del backend: 
 
 ## Instalación
 
-### Prerrequisitos
+### Opción A: Docker (recomendado, multiplataforma)
+
+Único prerrequisito: **Docker Desktop** (Windows, macOS o Linux). No necesitas Node, PostgreSQL ni npm en el host — la imagen `Dockerfile` usa `node:20-alpine`.
+
+```bash
+git clone <url-del-repositorio>
+cd utb-gamificacion
+cp .env.example .env     # en Windows: copy .env.example .env
+docker compose up -d
+```
+
+`docker compose up` ejecuta en el contenedor del `app`:
+`prisma db push` (crea el schema) → `db:seed-if-empty` (siembra datos solo si la base está vacía) → `npm run dev`.
+
+| Servicio | Puerto | Descripción |
+|---|---|---|
+| `app` | 3000 | Next.js — http://localhost:3000 |
+| `db` | 5432 | PostgreSQL 16 (volumen `utb-gamificacion_pgdata`) |
+| `external-academic-api` | 3001 | API académica simulada |
+
+Comandos útiles:
+
+```bash
+docker compose ps        # estado de los servicios
+docker compose logs -f app
+docker compose down      # parar (conserva el volumen de datos)
+docker compose down -v   # parar y BORRAR la base de datos
+```
+
+**El seed no destruye datos.** `prisma/seed.ts` hace 22 `deleteMany()`, por eso el arranque usa `prisma/seed-if-empty.ts`, que siembra únicamente si la tabla `users` está vacía. Si ya trabajaste con datos reales, tu base se conserva. Para sembrar a mano (destructivo) o para desactivarlo en el arranque:
+
+```bash
+npm run db:seed               # siembra desde cero (borra lo anterior)
+SEED_IF_EMPTY=false docker compose up -d
+```
+
+### Opción B: Local con Node + PostgreSQL
+
+> Requiere Node.js 18+ y PostgreSQL en el host. No necesitas PostgreSQL si vas por la Opción A.
+
+#### Prerrequisitos
 
 - Node.js 18+
 - PostgreSQL
 - npm
+- Bash (Linux/macOS; `setup.sh` no corre en Windows)
 
-### Método rápido (recomendado)
+#### Método rápido (solo Linux/macOS)
 
 ```bash
 ./setup.sh            # Completa: Node, Postgres, .env, dependencias, db:push, seed
@@ -201,7 +242,9 @@ Estructura detallada del frontend: `src/app/README.md`. Estructura del backend: 
 
 Detecta Debian/Fedora/Arch/macOS, instala Node >=18 vía nvm, crea usuario/DB, genera `.env` desde `.env.example`, hace `db:generate + db:push + db:seed`.
 
-### Método manual
+> Si ya tienes PostgreSQL 18 corriendo en el puerto 5432, choca con el puerto publicado del contenedor. Detén el servicio local o cambia el puerto en `docker-compose.yml`.
+
+#### Método manual
 
 1. Clonar e instalar:
 
@@ -211,20 +254,27 @@ cd utb-gamificacion
 npm install
 ```
 
-2. Variables de entorno (`.env`, plantilla en `.env.example`):
+2. Variables de entorno (`.env`, plantilla completa en `.env.example`):
+
+```bash
+cp .env.example .env     # en Windows: copy .env.example .env
+```
 
 ```env
 DATABASE_URL="postgresql://postgres:postgres@localhost:5432/utb_gamificacion?schema=public"
 NEXTAUTH_SECRET="cambia-este-secreto-por-uno-seguro"
 NEXTAUTH_URL="http://localhost:3000"
 MERITCOIN_API_URL="http://localhost:8000"
-MERITCOIN_IPFS_GATEWAY="https://ipfs.io/ipfs/"
 MERITCOIN_ISSUER_ID="utb-app"
 MERITCOIN_ISSUER_ROLE="admin"
 MERITCOIN_ONBOARDING_COURSE_ID="GAMIFICACION-ONBOARDING"
+UNIVERSITY_API_URL="http://localhost:3001"
+UNIVERSITY_API_KEY="dev-key"
+UNIVERSITY_API_ENABLED="false"
 ```
 
 Sin `MERITCOIN_*` la app funciona local; solo falla el espejo/emisión on-chain.
+Con `UNIVERSITY_API_ENABLED="true"` el curriculum y el perfil del estudiante leen de la API externa en vez de Prisma directo.
 
 3. DB + seed:
 
@@ -260,7 +310,11 @@ El email debe terminar en `@utb.edu.co` (validado en `src/lib/auth.ts`).
 ## Comandos Disponibles
 
 ```bash
-./setup.sh              # Instalación completa
+docker compose up -d      # Levanta app + db + api externa (Opción A)
+docker compose down       # Para los servicios (conserva datos)
+docker compose down -v    # Para y borra la base de datos
+
+./setup.sh              # Instalación completa (solo Linux/macOS)
 ./setup.sh --skip-db    # Solo dependencias npm
 
 npm run dev              # Dev con hot reload
@@ -269,7 +323,8 @@ npm run start            # Servidor producción
 
 npm run db:generate      # Generar cliente Prisma
 npm run db:push          # Sincronizar schema (sin migraciones)
-npm run db:seed          # Seed base (tsx prisma/seed.ts)
+npm run db:seed          # Seed base DESTRUCTIVO (tsx prisma/seed.ts)
+npm run db:seed-if-empty # Seed solo si la tabla users está vacía (no destructivo)
 npm run db:backfill-meritcoin # Backfill STU-{id}
 npm run db:reset         # push --force-reset + seed base
 npm run db:studio        # Prisma Studio GUI

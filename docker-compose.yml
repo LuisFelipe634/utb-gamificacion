@@ -1,0 +1,48 @@
+services:
+  db:
+    image: postgres:16-alpine
+    env_file: .env
+    environment:
+      POSTGRES_DB: "utb_gamificacion"
+      POSTGRES_USER: "postgres"
+      POSTGRES_PASSWORD: "postgres"
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  external-academic-api:
+    build: ./utb-external-api
+    ports:
+      - "3001:3001"
+    env_file: .env
+    environment:
+      PORT: "3001"
+      API_KEY: "${UNIVERSITY_API_KEY:-dev-key}"
+    restart: unless-stopped
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    depends_on:
+      db:
+        condition: service_healthy
+      external-academic-api:
+        condition: service_started
+    env_file: .env
+    environment:
+      DATABASE_URL: "postgresql://postgres:postgres@db:5432/utb_gamificacion?schema=public"
+      UNIVERSITY_API_URL: "http://external-academic-api:3001"
+      NEXTAUTH_URL: "http://localhost:3000"
+    command: sh -c "npx prisma db push && npm run db:seed-if-empty && npm run dev"
+
+volumes:
+  pgdata: {}
