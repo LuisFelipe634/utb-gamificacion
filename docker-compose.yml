@@ -3,9 +3,10 @@ services:
     image: postgres:16-alpine
     env_file: .env
     environment:
-      POSTGRES_DB: "utb_gamificacion"
-      POSTGRES_USER: "postgres"
-      POSTGRES_PASSWORD: "postgres"
+      POSTGRES_DB: "${POSTGRES_DB:-utb_gamificacion}"
+      POSTGRES_USER: "${POSTGRES_USER:-postgres}"
+    # POSTGRES_PASSWORD no se declara aca a proposito: llega por env_file (.env)
+    # y por interpolacion, asi ninguna credencial queda literal en el repo.
     ports:
       - "5432:5432"
     volumes:
@@ -39,10 +40,10 @@ services:
         condition: service_started
     env_file: .env
     environment:
-      DATABASE_URL: "postgresql://postgres:postgres@db:5432/utb_gamificacion?schema=public"
+      DATABASE_URL: "postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-utb_gamificacion}?schema=public"
       UNIVERSITY_API_URL: "http://external-academic-api:3001"
       NEXTAUTH_URL: "http://localhost:3000"
-    command: sh -c "npx prisma db push && npm run db:seed-if-empty && npm run dev"
+    command: sh -c "npm run db:push && npm run db:seed-if-empty && npm run dev"
 
 volumes:
   pgdata: {}
