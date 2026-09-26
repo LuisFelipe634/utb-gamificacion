@@ -91,7 +91,7 @@ app.get("/academic/students/:studentCode/history", async (request: FastifyReques
       grade: e.grade,
       credits: e.credits,
       semester: e.semester,
-      year: parseInt(e.semesterCode.split("-")[0], 10),
+      year: Number.parseInt(e.semesterCode.split("-")[0], 10),
       status: e.status,
     }));
 });
