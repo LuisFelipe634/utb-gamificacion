@@ -17,6 +17,8 @@ COPY --chown=node:node src ./src
 COPY --chown=node:node prisma ./prisma
 COPY --chown=node:node public ./public
 
-RUN npx prisma generate
+# "npm run" y no "npx": el binario viene de node_modules (version fijada por el
+# lockfile) y nunca se descarga en tiempo de build.
+RUN npm run db:generate
 EXPOSE 3000
 CMD ["npm", "run", "dev"]
