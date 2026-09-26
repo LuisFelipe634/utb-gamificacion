@@ -541,6 +541,9 @@ async function main() {
     const currentApprovedCourses = await prisma.course.findMany({
       where: { code: { in: ['C05A', 'C06A'] } }
     })
+    // Notas fijas por curso (no aleatorias): el seed queda reproducible y el
+    // mismo en cada `db:reset`.
+    const approvedGrades: Record<string, number> = { C05A: 4.3, C06A: 3.8 }
     for (const course of currentApprovedCourses) {
       const existingEnrollment = await prisma.enrollment.findFirst({
         where: { studentId: demoProfile.id, courseId: course.id, semesterCode: currentPeriod },
@@ -553,7 +556,7 @@ async function main() {
           courseId: course.id,
           semesterCode: currentPeriod,
           status: 'APROBADO',
-          grade: Number((3.0 + Math.random() * 1.8).toFixed(1)),
+          grade: approvedGrades[course.code] ?? 4.0,
         },
       })
     }
