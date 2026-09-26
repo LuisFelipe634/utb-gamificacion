@@ -4,7 +4,24 @@ import { PrismaPg } from '@prisma/adapter-pg'
 import bcrypt from 'bcryptjs'
 
 const connectionString = process.env.DATABASE_URL!
-console.log('🔗 Conectando a:', connectionString?.replace(/:([^@]+)@/, ':***@'))
+
+/**
+ * Destino de la conexion sin credenciales: solo protocolo, host, puerto y base.
+ * No se loguea la URL cruda porque al enmascarar con un regex se filtra
+ * cualquier clave que contenga "@" y no se cubren los query params
+ * (?sslpassword=, ?password=).
+ */
+function destinoSeguro(url: string | undefined): string {
+  if (!url) return 'DATABASE_URL no definida'
+  try {
+    const { protocol, hostname, port, pathname } = new URL(url)
+    return `${protocol}//${hostname}${port ? `:${port}` : ''}${pathname}`
+  } catch {
+    return 'DATABASE_URL no parseable (omitida por seguridad)'
+  }
+}
+
+console.log('🔗 Conectando a:', destinoSeguro(connectionString))
 const adapter = new PrismaPg({ connectionString })
 const prisma = new PrismaClient({ adapter })
 
