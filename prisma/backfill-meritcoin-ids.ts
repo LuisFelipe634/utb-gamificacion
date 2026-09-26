@@ -7,8 +7,11 @@ import { PrismaPg } from '@prisma/adapter-pg'
  * Backfill de la llave canónica Meritcoin (STU-{id}).
  *
  * Uso:
- *   1. Exporta el mapeo desde MariaDB de Moodle:
- *      docker exec meritcoin-mariadb mysql -u bn_moodle -pmoodle_pass bitnami_moodle \
+ *   1. Exporta el mapeo desde MariaDB de Moodle.
+ *      Credenciales: NO van en el repo. Usa `-p` (mysql pide la clave) o
+ *      MYSQL_PWD desde tu .env local de Moodle.
+ *      docker exec -e MYSQL_PWD="$MOODLE_DB_PASS" meritcoin-mariadb \
+ *        mysql -u bn_moodle bitnami_moodle \
  *        -e "SELECT email, id FROM mdl_user WHERE deleted=0 AND email LIKE '%@utb.edu.co';" > moodle-users.txt
  *   2. Arma un JSON { "email@utb.edu.co": "STU-3" } y corre:
  *      npx tsx prisma/backfill-meritcoin-ids.ts --map ./meritcoin-map.json [--provision]
