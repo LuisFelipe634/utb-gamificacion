@@ -8,6 +8,7 @@
  */
 import "dotenv/config";
 import { spawnSync } from "child_process";
+import { join } from "path";
 import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 
@@ -38,10 +39,13 @@ async function main() {
 
   if (await isDatabaseEmpty()) {
     console.log("[seed-if-empty] Base vacia detected, sembrando datos de ejemplo...");
-    const result = spawnSync("npx", ["tsx", "prisma/seed.ts"], {
+    // Se llama al CLI de tsx por ruta absoluta con el node del propio proceso:
+    // sin "npx" (descarga paquetes en runtime) y sin "shell: true" (que
+    // resolveria el binario via PATH, con riesgo de directorios con escritura).
+    const tsxCli = join(process.cwd(), "node_modules", "tsx", "dist", "cli.mjs");
+    const result = spawnSync(process.execPath, [tsxCli, "prisma/seed.ts"], {
       stdio: "inherit",
       env: process.env,
-      shell: true,
     });
     if (result.status !== 0) {
       console.error("[seed-if-empty] El seed fallo. Revisa prisma/seed.ts.");
