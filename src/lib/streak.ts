@@ -11,7 +11,12 @@ function dayKey(date: Date) {
 }
 
 export function calculateStreak(activities: ActivityDate[], now = new Date()): StreakSummary {
-  const days = [...new Set(activities.map((activity) => dayKey(activity.createdAt)))].sort().reverse()
+  // Descendente, que es lo que asumen los dos bucles de abajo. dayKey() siempre
+  // devuelve YYYY-MM-DD de ancho fijo, y para esa forma la colacion coincide con
+  // el orden cronologico; con otro formato el comparador dejaria de ordenar bien.
+  const days = [...new Set(activities.map((activity) => dayKey(activity.createdAt)))].sort((a, b) =>
+    b.localeCompare(a)
+  )
   const today = dayKey(now)
   const yesterday = dayKey(new Date(now.getTime() - 24 * 60 * 60 * 1000))
   const activeToday = days.includes(today)
