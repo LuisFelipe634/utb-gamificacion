@@ -103,10 +103,11 @@ export default function RegistroPage() {
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8 border border-gray-200 dark:border-gray-700">
           {step === "request" ? (
             <form onSubmit={requestCode} className="space-y-4">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Correo institucional</label>
+              <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Correo institucional</label>
               <div className="relative">
                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                 <input
+                  id="email"
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
@@ -115,7 +116,7 @@ export default function RegistroPage() {
                   required
                 />
               </div>
-              <button disabled={loading} className="w-full py-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white font-semibold rounded-lg disabled:opacity-50">
+              <button type="submit" disabled={loading} className="w-full py-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white font-semibold rounded-lg disabled:opacity-50">
                 {loading ? "Enviando..." : "Enviar código"}
               </button>
             </form>
@@ -144,7 +145,7 @@ export default function RegistroPage() {
                   Mi correo no contiene mi código (usar código manual)
                 </button>
               )}
-              <button disabled={loading} className="w-full py-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white font-semibold rounded-lg disabled:opacity-50">
+              <button type="submit" disabled={loading} className="w-full py-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white font-semibold rounded-lg disabled:opacity-50">
                 {loading ? "Verificando..." : "Verificar y crear cuenta"}
               </button>
               <button type="button" onClick={() => setStep("request")} className="w-full text-sm text-gray-500 hover:underline">
