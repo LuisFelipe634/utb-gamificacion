@@ -7,14 +7,11 @@ export type MissionCompletionRecord = {
 
 export function computeConsecutiveAccessStreak(records: AccessRecord[], now = new Date()): number {
   const normalized = new Set(
-    records
-      .map((record) => {
-        const date = new Date(record.createdAt)
-        date.setUTCHours(0, 0, 0, 0)
-        return date.toISOString().slice(0, 10)
-      })
-      .sort()
-      .reverse()
+    records.map((record) => {
+      const date = new Date(record.createdAt)
+      date.setUTCHours(0, 0, 0, 0)
+      return date.toISOString().slice(0, 10)
+    })
   )
 
   if (normalized.size === 0) {

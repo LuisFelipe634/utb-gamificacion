@@ -16,6 +16,17 @@ test("computeConsecutiveAccessStreak counts consecutive days from today", () => 
   assert.equal(computeConsecutiveAccessStreak(dates), 4)
 })
 
+test("computeConsecutiveAccessStreak does not depend on the order of the records", () => {
+  const now = new Date("2026-09-26T12:00:00.000Z")
+  const days = [0, 1, 2, 3, 5].map((offset) => ({
+    createdAt: new Date(now.getTime() - offset * 24 * 60 * 60 * 1000),
+  }))
+
+  assert.equal(computeConsecutiveAccessStreak(days, now), 4)
+  assert.equal(computeConsecutiveAccessStreak([...days].reverse(), now), 4)
+  assert.equal(computeConsecutiveAccessStreak([days[4], days[0], days[3], days[1], days[2]], now), 4)
+})
+
 test("countUniqueCompletedMissions deduplicates by mission in a 7 day window", () => {
   const now = new Date("2026-09-23T12:00:00.000Z")
   const items = [
