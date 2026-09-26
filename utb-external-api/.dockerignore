@@ -1,0 +1,24 @@
+# Docker usa <contexto>/.dockerignore. El contexto de este servicio es
+# ./utb-external-api (docker-compose.yml), asi que este archivo es el que
+# protege sus propias credenciales: sin el, un .env aqui queda horneado
+# en la imagen. Los patrones se anclan a la raiz del contexto.
+
+**/node_modules
+**/dist
+**/build
+**/*.tsbuildinfo
+
+**/.env
+**/.env.*
+!**/.env.example
+
+**/*.pem
+**/*.key
+**/*.p12
+**/*.pfx
+
+**/__pycache__
+**/.pytest_cache
+**/coverage
+*.log
+.DS_Store

@@ -1,32 +1,51 @@
+# OJO: los patrones de .dockerignore se anclan a la raiz del contexto.
+# "node_modules" solo excluye /node_modules; para excluir en cualquier
+# nivel hay que escribir "**/node_modules" (a diferencia de .gitignore).
+
 # Dependencias y artefactos de build: se reinstalan/recompilan dentro de la imagen
-node_modules
-.next
-out
-build
-*.tsbuildinfo
-next-env.d.ts
+**/node_modules
+**/.next
+**/out
+**/dist
+**/build
+**/*.tsbuildinfo
+**/next-env.d.ts
 
 # Sistema de control de versiones
-.git
-.gitignore
-.github
+**/.git
+**/.gitignore
+**/.github
 
 # Secretos: el contenedor recibe el .env via env_file en runtime (docker-compose.yml)
-.env
-.env.*
-!.env.example
+**/.env
+**/.env.*
+!**/.env.example
+
+# Certificados y llaves
+**/*.pem
+**/*.key
+**/*.p12
+**/*.pfx
+
+# Artefactos del backfill de Meritcoin: corrios y llaves de estudiante (PII).
+# Los genera el script en la raiz del repo; nunca deben entrar a la imagen.
+moodle-users.txt
+meritcoin-map.json
+moodledata-export*
 
 # Docs y archivos que la app no necesita
-docs
-README.md
+**/docs
+**/README.md
 setup.sh
-*.md
+**/*.md
 
 # Utilidades de desarrollo
-scripts
-.eslintcache
+**/scripts
+**/.eslintcache
+**/.vscode
+**/.idea
+**/__pycache__
+**/coverage
 npm-debug.log*
 yarn-error.log*
 .DS_Store
-.vscode
-.idea
