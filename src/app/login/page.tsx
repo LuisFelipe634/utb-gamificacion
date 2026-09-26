@@ -1,11 +1,10 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useSyncExternalStore } from "react"
 import { signIn } from "next-auth/react"
 import { useRouter } from "next/navigation"
 import { GraduationCap, Mail, Lock, Eye, EyeOff, Moon, Sun } from "lucide-react"
 import { useTheme } from "next-themes"
-import { useSyncExternalStore } from "react"
 
 export default function LoginPage() {
   const router = useRouter()
@@ -20,6 +19,9 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
+
+  const toggleThemeLabel = theme === "dark" ? "Activar modo claro" : "Activar modo oscuro"
+  const themeLabel = mounted ? toggleThemeLabel : "Cambiar tema"
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -54,8 +56,8 @@ export default function LoginPage() {
       <button
         type="button"
         onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-        aria-label={mounted ? (theme === "dark" ? "Activar modo claro" : "Activar modo oscuro") : "Cambiar tema"}
-        title={mounted ? (theme === "dark" ? "Activar modo claro" : "Activar modo oscuro") : "Cambiar tema"}
+        aria-label={themeLabel}
+        title={themeLabel}
         className="absolute right-4 top-4 rounded-lg p-2 text-gray-500 hover:bg-white/70 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-gray-800/70 dark:hover:text-white"
       >
         {mounted && theme === "dark" ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
@@ -81,12 +83,13 @@ export default function LoginPage() {
           <form onSubmit={handleSubmit} className="space-y-4">
             {/* Email */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Correo Institucional
               </label>
               <div className="relative">
                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                 <input
+                  id="email"
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
@@ -99,12 +102,13 @@ export default function LoginPage() {
 
             {/* Password */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Contraseña
               </label>
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                 <input
+                  id="password"
                   type={showPassword ? "text" : "password"}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
