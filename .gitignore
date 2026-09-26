@@ -53,3 +53,7 @@ next-env.d.ts
 /moodle-users.txt
 /meritcoin-map.json
 /moodledata-export*
+
+# CSV de PROA para el import: correos, codigos y nombres de estudiantes.
+/imports/*
+!/imports/.gitkeep

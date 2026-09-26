@@ -33,6 +33,9 @@ moodle-users.txt
 meritcoin-map.json
 moodledata-export*
 
+# CSV de PROA del import: correos, codigos y nombres de estudiantes
+imports
+
 # Docs y archivos que la app no necesita
 **/docs
 **/README.md
