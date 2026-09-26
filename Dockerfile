@@ -1,15 +1,21 @@
 FROM node:20-alpine
 WORKDIR /app
 
-COPY package.json package-lock.json ./
-RUN npm ci
+# /app es de root, asi que se entrega al usuario node antes de instalar:
+# a partir de ahi la build y el runtime corren sin privilegios.
+RUN chown node:node /app
+USER node
+
+COPY --chown=node:node package.json package-lock.json ./
+# Prisma 7 genera el client en un paso explicito y no necesita postinstall.
+RUN npm ci --ignore-scripts
 
 # Copia explicita en vez de "COPY . .": la imagen no depende de que el
 # .dockerignore este completo para no arrastrar .env, .git ni PII.
-COPY tsconfig.json next.config.ts postcss.config.mjs eslint.config.mjs prisma.config.ts ./
-COPY src ./src
-COPY prisma ./prisma
-COPY public ./public
+COPY --chown=node:node tsconfig.json next.config.ts postcss.config.mjs eslint.config.mjs prisma.config.ts ./
+COPY --chown=node:node src ./src
+COPY --chown=node:node prisma ./prisma
+COPY --chown=node:node public ./public
 
 RUN npx prisma generate
 EXPOSE 3000
